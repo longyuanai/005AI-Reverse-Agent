@@ -73,6 +73,14 @@ from ai_reverse_agent.symbolic import (
     solve_branch,
     symbolic_input,
 )
+from ai_reverse_agent.patch_diff import (
+    FunctionDiff,
+    InstructionDelta,
+    PatchDiffResult,
+    diff_binaries,
+    diff_files,
+    format_patch_diff,
+)
 
 __version__ = "0.1.0"
 
@@ -96,8 +104,11 @@ __all__ = [
     "IdentifiedFunction",
     "LibrarySignature",
     "FunctionBoundary",
+    "FunctionDiff",
     "GraphvizUnavailable",
+    "InstructionDelta",
     "NormalizedInstruction",
+    "PatchDiffResult",
     "PeImage",
     "StackVariable",
     "Symbol",
@@ -111,6 +122,8 @@ __all__ = [
     "detect_elf_architecture",
     "decompile_bytes",
     "decompile_function",
+    "diff_binaries",
+    "diff_files",
     "disassemble_bytes",
     "disassemble_file",
     "explain_functions",
@@ -128,6 +141,7 @@ __all__ = [
     "format_disassembly",
     "find_function_boundaries",
     "format_decompilation",
+    "format_patch_diff",
     "identify_stack_variables",
     "loop_value",
     "solve_branch",

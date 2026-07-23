@@ -32,6 +32,7 @@ from ai_reverse_agent.signatures import match_instructions
 from ai_reverse_agent.disasm import disassemble
 from ai_reverse_agent.decompiler import find_function_boundaries
 from ai_reverse_agent.symbolic import loop_value, solve_branch, symbolic_input
+from ai_reverse_agent.patch_diff import diff_files, format_patch_diff
 from ai_reverse_agent.controlflow import (
     GraphvizUnavailable,
     build_cfg,
@@ -367,6 +368,52 @@ def solve_branch_command(
         f"{name}={value}" for name, value in solution.inputs.items()
     )
     click.echo(f"{assignment} backend={solution.backend}")
+
+
+@cli.command("patch-diff")
+@click.argument("baseline", type=click.Path(exists=True, dir_okay=False))
+@click.argument("current", type=click.Path(exists=True, dir_okay=False))
+@click.option("--arch", "architecture", required=True)
+@click.option("--bits", type=click.Choice(["32", "64"]), default=None)
+@click.option(
+    "--endian",
+    type=click.Choice(["little", "big"], case_sensitive=False),
+    default="little",
+    show_default=True,
+)
+@click.option("--base-address", type=AUTO_INT, default="0", show_default=True)
+@click.option("--thumb", is_flag=True, help="Decode ARM Thumb instructions.")
+@click.option("--output", "-o", "output_path", default="-", type=click.Path(dir_okay=False))
+def patch_diff_command(
+    baseline: str,
+    current: str,
+    architecture: str,
+    bits: str | None,
+    endian: str,
+    base_address: int,
+    thumb: bool,
+    output_path: str,
+) -> None:
+    """Compare two raw binaries at function and instruction level."""
+    try:
+        result = diff_files(
+            baseline,
+            current,
+            architecture,
+            address=base_address,
+            bits=None if bits is None else int(bits),
+            endianness=endian,
+            thumb=thumb,
+        )
+    except (OSError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    report = format_patch_diff(result)
+    if output_path == "-":
+        click.echo(report, nl=False)
+    else:
+        Path(output_path).write_text(report, encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output_path}")
 
 
 @cli.command()

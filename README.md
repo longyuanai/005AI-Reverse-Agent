@@ -137,6 +137,17 @@ python -m ai_reverse_agent.cli solve-branch \
   --variable input --max-value 20 --multiplier 3 --offset 1 --target 22
 ```
 
+## Compare binary patches
+
+Raw baseline/current files are disassembled with the existing Capstone
+layer, paired by return-delimited function ordinal, then diffed at
+normalized-instruction level.
+
+```bash
+python -m ai_reverse_agent.cli patch-diff baseline.bin current.bin \
+  --arch x64 --base-address 0x401000
+```
+
 ## Test
 
 ```bash
