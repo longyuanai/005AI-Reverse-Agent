@@ -104,6 +104,14 @@ python -m ai_reverse_agent.cli decompile samples/x64-demo.bin \
   --arch x64 --base-address 0x401000
 ```
 
+The PoC signature matcher compares the first 16 Capstone-decoded bytes
+against a masked built-in table for `msvcrt`, `libc`, and `libstdc++`.
+Matched functions use the library function name in pseudo-C.
+
+```bash
+python -m ai_reverse_agent.cli identify-libs function.bin --arch x64
+```
+
 ## Test
 
 ```bash

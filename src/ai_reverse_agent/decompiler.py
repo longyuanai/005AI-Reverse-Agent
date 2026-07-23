@@ -39,6 +39,7 @@ class DecompiledFunction:
     boundary: FunctionBoundary
     stack_variables: tuple[StackVariable, ...]
     pseudo_c: str
+    library: str | None = None
 
 
 _RETURN_MNEMONICS = {"ret", "retf", "iret", "iretd", "iretq"}
@@ -118,6 +119,7 @@ def decompile_function(
     boundary: FunctionBoundary,
     *,
     name: str | None = None,
+    library: str | None = None,
 ) -> DecompiledFunction:
     """Lift one function boundary into conservative pseudo-C."""
     function_name = name or boundary.default_name
@@ -140,6 +142,7 @@ def decompile_function(
         boundary=boundary,
         stack_variables=stack_variables,
         pseudo_c="\n".join(lines),
+        library=library,
     )
 
 
@@ -151,6 +154,7 @@ def decompile_bytes(
     bits: int | None = None,
     endianness: Endianness | str = Endianness.LITTLE,
     thumb: bool = False,
+    recognize_libraries: bool = True,
 ) -> tuple[DecompiledFunction, ...]:
     """Disassemble bytes through S1 and return pseudo-C functions."""
     instructions = tuple(
@@ -163,10 +167,21 @@ def decompile_bytes(
             thumb=thumb,
         )
     )
-    return tuple(
-        decompile_function(boundary)
-        for boundary in find_function_boundaries(instructions)
-    )
+    functions: list[DecompiledFunction] = []
+    for boundary in find_function_boundaries(instructions):
+        match = None
+        if recognize_libraries:
+            from ai_reverse_agent.signatures import match_instructions
+
+            match = match_instructions(boundary.instructions, architecture)
+        functions.append(
+            decompile_function(
+                boundary,
+                name=None if match is None else match.name,
+                library=None if match is None else match.library,
+            )
+        )
+    return tuple(functions)
 
 
 def format_decompilation(functions: tuple[DecompiledFunction, ...]) -> str:

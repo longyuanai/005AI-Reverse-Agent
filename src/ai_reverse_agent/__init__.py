@@ -43,12 +43,21 @@ from ai_reverse_agent.fake_pe import make_fake_pe
 from ai_reverse_agent.identifier import identify_functions
 from ai_reverse_agent.parsers import parse_pe, parse_pe_bytes
 from ai_reverse_agent.reporter import render_markdown
+from ai_reverse_agent.signatures import (
+    BUILTIN_SIGNATURES,
+    LibrarySignature,
+    SignatureMatch,
+    match_code,
+    match_instructions,
+    signature_bytes,
+)
 
 __version__ = "0.1.0"
 
 __all__ = [
     "Architecture",
     "ArchitectureSpec",
+    "BUILTIN_SIGNATURES",
     "DisassembledInstruction",
     "DisassemblyError",
     "DisassemblyResult",
@@ -56,10 +65,12 @@ __all__ = [
     "Endianness",
     "EnrichedFunction",
     "IdentifiedFunction",
+    "LibrarySignature",
     "FunctionBoundary",
     "NormalizedInstruction",
     "PeImage",
     "StackVariable",
+    "SignatureMatch",
     "__version__",
     "architecture_from_pe_machine",
     "detect_elf_architecture",
@@ -70,10 +81,13 @@ __all__ = [
     "explain_functions",
     "identify_functions",
     "make_fake_pe",
+    "match_code",
+    "match_instructions",
     "parse_pe",
     "parse_pe_bytes",
     "render_markdown",
     "resolve_architecture",
+    "signature_bytes",
     "format_disassembly",
     "find_function_boundaries",
     "format_decompilation",

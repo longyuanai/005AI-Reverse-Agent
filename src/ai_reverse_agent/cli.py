@@ -28,6 +28,9 @@ from ai_reverse_agent.fake_pe import make_fake_pe
 from ai_reverse_agent.identifier import identify_functions
 from ai_reverse_agent.parsers import parse_pe_bytes
 from ai_reverse_agent.reporter import render_markdown
+from ai_reverse_agent.signatures import match_instructions
+from ai_reverse_agent.disasm import disassemble
+from ai_reverse_agent.decompiler import find_function_boundaries
 
 
 console = Console()
@@ -214,6 +217,40 @@ def decompile_command(
     else:
         Path(output_path).write_text(pseudo_c, encoding="utf-8")
         console.print(f"[green]Wrote[/green] {output_path}")
+
+
+@cli.command("identify-libs")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--arch", "architecture", required=True)
+@click.option("--bits", type=click.Choice(["32", "64"]), default=None)
+@click.option("--base-address", type=AUTO_INT, default="0", show_default=True)
+def identify_libs_command(
+    path: str,
+    architecture: str,
+    bits: str | None,
+    base_address: int,
+) -> None:
+    """Identify built-in library signatures in a raw binary."""
+    try:
+        instructions = tuple(
+            disassemble(
+                Path(path).read_bytes(),
+                architecture,
+                address=base_address,
+                bits=None if bits is None else int(bits),
+            )
+        )
+    except (OSError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    found = 0
+    for boundary in find_function_boundaries(instructions):
+        match = match_instructions(boundary.instructions, architecture)
+        if match is not None:
+            click.echo(f"0x{boundary.start_address:x} {match.qualified_name}")
+            found += 1
+    if not found:
+        click.echo("No built-in library signatures matched.")
 
 
 @cli.command()
