@@ -112,6 +112,20 @@ Matched functions use the library function name in pseudo-C.
 python -m ai_reverse_agent.cli identify-libs function.bin --arch x64
 ```
 
+## Build a control-flow graph
+
+The CFG builder splits basic blocks at jumps, calls, and returns. DOT is
+always available; PNG rendering is enabled when the Graphviz `dot`
+executable is installed.
+
+```bash
+python -m ai_reverse_agent.cli cfg function.bin --arch x64 \
+  --dot-output function.dot --png-output function.png
+```
+
+Portable Windows builds can pass the full executable path with
+`--dot-executable C:\Graphviz\bin\dot.exe`.
+
 ## Test
 
 ```bash

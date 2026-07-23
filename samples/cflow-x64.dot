@@ -1,0 +1,11 @@
+digraph cflow_x64 {
+  graph [rankdir="TB"];
+  node [shape="box", fontname="Consolas"];
+  edge [fontname="Consolas"];
+  "block_1000" [label="0x1000:\l0x1000  xor eax, eax\l0x1002  je 0x1007\l"];
+  "block_1004" [label="0x1004:\l0x1004  add eax, 1\l"];
+  "block_1007" [label="0x1007:\l0x1007  ret\l"];
+  "block_1000" -> "block_1007" [label="branch", color="blue"];
+  "block_1000" -> "block_1004" [label="fallthrough", color="gray40"];
+  "block_1004" -> "block_1007" [label="fallthrough", color="gray40"];
+}

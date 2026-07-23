@@ -31,6 +31,12 @@ from ai_reverse_agent.reporter import render_markdown
 from ai_reverse_agent.signatures import match_instructions
 from ai_reverse_agent.disasm import disassemble
 from ai_reverse_agent.decompiler import find_function_boundaries
+from ai_reverse_agent.controlflow import (
+    GraphvizUnavailable,
+    build_cfg,
+    render_png,
+    to_dot,
+)
 
 
 console = Console()
@@ -251,6 +257,52 @@ def identify_libs_command(
             found += 1
     if not found:
         click.echo("No built-in library signatures matched.")
+
+
+@cli.command("cfg")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--arch", "architecture", required=True)
+@click.option("--bits", type=click.Choice(["32", "64"]), default=None)
+@click.option("--base-address", type=AUTO_INT, default="0", show_default=True)
+@click.option("--dot-output", required=True, type=click.Path(dir_okay=False))
+@click.option("--png-output", default=None, type=click.Path(dir_okay=False))
+@click.option(
+    "--dot-executable",
+    default="dot",
+    show_default=True,
+    help="Graphviz dot command name or full path.",
+)
+def cfg_command(
+    path: str,
+    architecture: str,
+    bits: str | None,
+    base_address: int,
+    dot_output: str,
+    png_output: str | None,
+    dot_executable: str,
+) -> None:
+    """Build a basic-block CFG and write DOT, optionally PNG."""
+    try:
+        instructions = tuple(
+            disassemble(
+                Path(path).read_bytes(),
+                architecture,
+                address=base_address,
+                bits=None if bits is None else int(bits),
+            )
+        )
+        dot_text = to_dot(build_cfg(instructions), name=Path(path).stem)
+        Path(dot_output).write_text(dot_text, encoding="utf-8")
+        console.print(f"[green]Wrote DOT[/green] {dot_output}")
+        if png_output is not None:
+            try:
+                render_png(dot_text, png_output, dot_executable=dot_executable)
+            except GraphvizUnavailable as exc:
+                console.print(f"[yellow]PNG skipped:[/yellow] {exc}")
+            else:
+                console.print(f"[green]Wrote PNG[/green] {png_output}")
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 @cli.command()
