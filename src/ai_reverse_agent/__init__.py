@@ -81,6 +81,15 @@ from ai_reverse_agent.patch_diff import (
     diff_files,
     format_patch_diff,
 )
+from ai_reverse_agent.crypto_id import (
+    AES_SBOX,
+    SHA1_INITIAL_STATE,
+    SHA256_K_PREFIX,
+    CryptoDetection,
+    format_crypto_detections,
+    identify_crypto,
+    identify_crypto_file,
+)
 
 __version__ = "0.1.0"
 
@@ -97,6 +106,7 @@ __all__ = [
     "ControlFlowGraph",
     "Constant",
     "Constraint",
+    "CryptoDetection",
     "DecompiledFunction",
     "Endianness",
     "EnrichedFunction",
@@ -116,6 +126,9 @@ __all__ = [
     "SymbolicError",
     "SymbolicSolution",
     "SignatureMatch",
+    "AES_SBOX",
+    "SHA1_INITIAL_STATE",
+    "SHA256_K_PREFIX",
     "__version__",
     "architecture_from_pe_machine",
     "build_cfg",
@@ -141,7 +154,10 @@ __all__ = [
     "format_disassembly",
     "find_function_boundaries",
     "format_decompilation",
+    "format_crypto_detections",
     "format_patch_diff",
+    "identify_crypto",
+    "identify_crypto_file",
     "identify_stack_variables",
     "loop_value",
     "solve_branch",

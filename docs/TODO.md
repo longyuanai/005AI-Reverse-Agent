@@ -1,6 +1,6 @@
 # 005 AI-Reverse-Agent · v0.1 TODO
 
-> **项目状态**: through PATCH-001-A ✅ (142/142 tests passing)
+> **项目状态**: S3 complete ✅ (150/150 tests passing)
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) (已冻结)
 > **派活模板**: [CODEX_INSTRUCTIONS.md](../../CODEX_INSTRUCTIONS.md)
 
@@ -22,7 +22,7 @@
 |----|------|------|-------|-------|------|
 | SYMBOLIC-001-A | 轻量符号执行 | done | 2026-07-24 | 2026-07-24 | mini solver + optional Z3 backend |
 | PATCH-001-A | 二进制 patch diff | done | 2026-07-24 | 2026-07-24 | 函数级 + normalized instruction diff |
-| CRYPTO-001-A | 加密常量识别 | pending | | | |
+| CRYPTO-001-A | 加密常量识别 | done | 2026-07-24 | 2026-07-24 | AES S-box + SHA-1/SHA-256 常量表 |
 
 ---
 

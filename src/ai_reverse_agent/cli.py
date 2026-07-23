@@ -33,6 +33,10 @@ from ai_reverse_agent.disasm import disassemble
 from ai_reverse_agent.decompiler import find_function_boundaries
 from ai_reverse_agent.symbolic import loop_value, solve_branch, symbolic_input
 from ai_reverse_agent.patch_diff import diff_files, format_patch_diff
+from ai_reverse_agent.crypto_id import (
+    format_crypto_detections,
+    identify_crypto_file,
+)
 from ai_reverse_agent.controlflow import (
     GraphvizUnavailable,
     build_cfg,
@@ -409,6 +413,24 @@ def patch_diff_command(
         raise click.ClickException(str(exc)) from exc
 
     report = format_patch_diff(result)
+    if output_path == "-":
+        click.echo(report, nl=False)
+    else:
+        Path(output_path).write_text(report, encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output_path}")
+
+
+@cli.command("crypto-id")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--output", "-o", "output_path", default="-", type=click.Path(dir_okay=False))
+def crypto_id_command(path: str, output_path: str) -> None:
+    """Identify known cryptographic constants in a binary."""
+
+    try:
+        report = format_crypto_detections(identify_crypto_file(path))
+    except OSError as exc:
+        raise click.ClickException(str(exc)) from exc
+
     if output_path == "-":
         click.echo(report, nl=False)
     else:

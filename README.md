@@ -148,6 +148,17 @@ python -m ai_reverse_agent.cli patch-diff baseline.bin current.bin \
   --arch x64 --base-address 0x401000
 ```
 
+## Identify cryptographic constants
+
+The constant scanner recognizes complete AES S-box data, the first eight
+SHA-256 round constants, and the SHA-1 initial state. Word tables are
+checked in both little- and big-endian layouts to cover compiled binaries
+from different targets.
+
+```bash
+python -m ai_reverse_agent.cli crypto-id firmware.bin
+```
+
 ## Test
 
 ```bash
