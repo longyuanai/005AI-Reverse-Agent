@@ -60,6 +60,19 @@ from ai_reverse_agent.signatures import (
     match_instructions,
     signature_bytes,
 )
+from ai_reverse_agent.symbolic import (
+    BinaryExpression,
+    Constant,
+    Constraint,
+    Expression,
+    Symbol,
+    SymbolicBackendUnavailable,
+    SymbolicError,
+    SymbolicSolution,
+    loop_value,
+    solve_branch,
+    symbolic_input,
+)
 
 __version__ = "0.1.0"
 
@@ -67,15 +80,19 @@ __all__ = [
     "Architecture",
     "ArchitectureSpec",
     "BasicBlock",
+    "BinaryExpression",
     "BUILTIN_SIGNATURES",
     "DisassembledInstruction",
     "DisassemblyError",
     "DisassemblyResult",
     "ControlFlowEdge",
     "ControlFlowGraph",
+    "Constant",
+    "Constraint",
     "DecompiledFunction",
     "Endianness",
     "EnrichedFunction",
+    "Expression",
     "IdentifiedFunction",
     "LibrarySignature",
     "FunctionBoundary",
@@ -83,6 +100,10 @@ __all__ = [
     "NormalizedInstruction",
     "PeImage",
     "StackVariable",
+    "Symbol",
+    "SymbolicBackendUnavailable",
+    "SymbolicError",
+    "SymbolicSolution",
     "SignatureMatch",
     "__version__",
     "architecture_from_pe_machine",
@@ -108,4 +129,7 @@ __all__ = [
     "find_function_boundaries",
     "format_decompilation",
     "identify_stack_variables",
+    "loop_value",
+    "solve_branch",
+    "symbolic_input",
 ]

@@ -126,6 +126,17 @@ python -m ai_reverse_agent.cli cfg function.bin --arch x64 \
 Portable Windows builds can pass the full executable path with
 `--dot-executable C:\Graphviz\bin\dot.exe`.
 
+## Solve a branch condition
+
+The v0.5 symbolic layer solves bounded integer constraints with a
+dependency-free mini backend. If `z3-solver` is installed separately,
+`backend="auto"` selects it automatically.
+
+```bash
+python -m ai_reverse_agent.cli solve-branch \
+  --variable input --max-value 20 --multiplier 3 --offset 1 --target 22
+```
+
 ## Test
 
 ```bash

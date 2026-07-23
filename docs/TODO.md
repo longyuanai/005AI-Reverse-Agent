@@ -1,6 +1,6 @@
 # 005 AI-Reverse-Agent · v0.1 TODO
 
-> **项目状态**: S1 + S2 complete ✅ (127/127 tests passing)
+> **项目状态**: S1 + S2 + SYMBOLIC-001-A ✅ (135/135 tests passing)
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) (已冻结)
 > **派活模板**: [CODEX_INSTRUCTIONS.md](../../CODEX_INSTRUCTIONS.md)
 
@@ -15,6 +15,14 @@
 | DECOMP-001 | 接 Ghidra P-Code 或自研 | done | 2026-07-24 | 2026-07-24 | 自研伪 C + 函数边界/栈变量 |
 | FLIRT-001 | 库函数识别 (FLIRT 签名) | done | 2026-07-24 | 2026-07-24 | 内置 masked 16-byte 签名表 |
 | CFLOW-001 | 控制流图可视化 (输出 PNG / DOT) | done | 2026-07-24 | 2026-07-24 | jump/call/ret CFG；DOT + 可选 Graphviz PNG |
+
+## v0.5 · S3
+
+| ID | 任务 | 状态 | 启动日 | 完成日 | 备注 |
+|----|------|------|-------|-------|------|
+| SYMBOLIC-001-A | 轻量符号执行 | done | 2026-07-24 | 2026-07-24 | mini solver + optional Z3 backend |
+| PATCH-001-A | 二进制 patch diff | pending | | | |
+| CRYPTO-001-A | 加密常量识别 | pending | | | |
 
 ---
 

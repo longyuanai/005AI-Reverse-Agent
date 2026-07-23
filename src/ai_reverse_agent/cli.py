@@ -31,6 +31,7 @@ from ai_reverse_agent.reporter import render_markdown
 from ai_reverse_agent.signatures import match_instructions
 from ai_reverse_agent.disasm import disassemble
 from ai_reverse_agent.decompiler import find_function_boundaries
+from ai_reverse_agent.symbolic import loop_value, solve_branch, symbolic_input
 from ai_reverse_agent.controlflow import (
     GraphvizUnavailable,
     build_cfg,
@@ -303,6 +304,69 @@ def cfg_command(
                 console.print(f"[green]Wrote PNG[/green] {png_output}")
     except (OSError, RuntimeError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
+
+
+@cli.command("solve-branch")
+@click.option("--variable", default="input", show_default=True)
+@click.option("--min-value", type=int, default=0, show_default=True)
+@click.option("--max-value", type=int, default=255, show_default=True)
+@click.option("--multiplier", type=int, default=1, show_default=True)
+@click.option("--offset", type=int, default=0, show_default=True)
+@click.option("--loop-step", type=int, default=0, show_default=True)
+@click.option("--loop-iterations", type=click.IntRange(min=0), default=0, show_default=True)
+@click.option(
+    "--operator",
+    "operator_name",
+    type=click.Choice(["eq", "ne", "lt", "le", "gt", "ge"]),
+    default="eq",
+    show_default=True,
+)
+@click.option("--target", type=int, required=True)
+@click.option(
+    "--backend",
+    type=click.Choice(["auto", "mini", "z3"]),
+    default="auto",
+    show_default=True,
+)
+def solve_branch_command(
+    variable: str,
+    min_value: int,
+    max_value: int,
+    multiplier: int,
+    offset: int,
+    loop_step: int,
+    loop_iterations: int,
+    operator_name: str,
+    target: int,
+    backend: str,
+) -> None:
+    """Solve a bounded arithmetic condition for a branch-triggering input."""
+    try:
+        symbol = symbolic_input(variable, min_value, max_value)
+        expression = symbol * multiplier + offset
+        expression = loop_value(
+            expression,
+            step=loop_step,
+            iterations=loop_iterations,
+        )
+        comparison = {
+            "eq": expression.equals,
+            "ne": expression.not_equals,
+            "lt": expression.__lt__,
+            "le": expression.__le__,
+            "gt": expression.__gt__,
+            "ge": expression.__ge__,
+        }[operator_name](target)
+        solution = solve_branch(comparison, backend=backend)
+    except (TypeError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if not solution.satisfiable:
+        raise click.ClickException("branch is unsatisfiable in the requested domain")
+    assignment = " ".join(
+        f"{name}={value}" for name, value in solution.inputs.items()
+    )
+    click.echo(f"{assignment} backend={solution.backend}")
 
 
 @cli.command()
