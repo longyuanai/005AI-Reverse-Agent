@@ -11,12 +11,18 @@ import json
 import os
 import sys
 from io import BytesIO
+from pathlib import Path
 
 import click
 from rich.console import Console
 
 from ai_reverse_agent import __version__
 from ai_reverse_agent.analyzer import explain_functions
+from ai_reverse_agent.disassembler import (
+    DisassemblyError,
+    disassemble_file,
+    format_disassembly,
+)
 from ai_reverse_agent.fake_pe import make_fake_pe
 from ai_reverse_agent.identifier import identify_functions
 from ai_reverse_agent.parsers import parse_pe_bytes
@@ -94,6 +100,76 @@ def _print_pe_summary(pe) -> None:
     console.print(f"  Architecture: [green]{pe.architecture.label}[/green]")
     console.print(f"  [green]{len(pe.imports)}[/green] imports, "
                   f"[green]{len(pe.functions)}[/green] function-table entries")
+
+
+class _AutoInt(click.ParamType):
+    name = "integer"
+
+    def convert(self, value, param, ctx):
+        try:
+            parsed = int(str(value), 0)
+        except (TypeError, ValueError):
+            self.fail(f"{value!r} is not a decimal or 0x-prefixed integer", param, ctx)
+        if parsed < 0:
+            self.fail(f"{value!r} must be non-negative", param, ctx)
+        return parsed
+
+
+AUTO_INT = _AutoInt()
+
+
+@cli.command("disassemble")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False))
+@click.option(
+    "--arch",
+    "architecture",
+    required=True,
+    help="Architecture or alias: x86, x64, ARM, AArch64, MIPS, or RISC-V.",
+)
+@click.option("--bits", type=click.Choice(["32", "64"]), default=None)
+@click.option(
+    "--endian",
+    type=click.Choice(["little", "big"], case_sensitive=False),
+    default="little",
+    show_default=True,
+)
+@click.option("--base-address", type=AUTO_INT, default="0", show_default=True)
+@click.option("--thumb", is_flag=True, help="Decode ARM Thumb instructions.")
+@click.option("--max-instructions", type=click.IntRange(min=1), default=None)
+@click.option("--strict", is_flag=True, help="Fail if Capstone leaves undecoded bytes.")
+@click.option("--output", "-o", "output_path", default="-", type=click.Path(dir_okay=False))
+def disassemble_command(
+    path: str,
+    architecture: str,
+    bits: str | None,
+    endian: str,
+    base_address: int,
+    thumb: bool,
+    max_instructions: int | None,
+    strict: bool,
+    output_path: str,
+) -> None:
+    """Disassemble a raw binary file with Capstone."""
+    try:
+        result = disassemble_file(
+            path,
+            architecture,
+            bits=None if bits is None else int(bits),
+            endianness=endian,
+            base_address=base_address,
+            thumb=thumb,
+            max_instructions=max_instructions,
+            strict=strict,
+        )
+    except (DisassemblyError, OSError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    listing = format_disassembly(result)
+    if output_path == "-":
+        click.echo(listing, nl=False)
+    else:
+        Path(output_path).write_text(listing, encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output_path}")
 
 
 @cli.command()

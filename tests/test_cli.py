@@ -100,3 +100,49 @@ def test_cli_analyze_runs_on_real_blob(tmp_path, monkeypatch):
     assert res.exit_code == 0, res.output
     text = out.read_text(encoding="utf-8")
     assert "CreateFileW" in text
+
+
+def test_cli_disassemble_raw_bin(tmp_path):
+    binary = tmp_path / "x64.bin"
+    binary.write_bytes(b"\x55\x48\x89\xe5\xc3")
+    runner = CliRunner()
+    res = runner.invoke(
+        cli,
+        ["disassemble", str(binary), "--arch", "x64", "--base-address", "0x401000"],
+    )
+    assert res.exit_code == 0, res.output
+    assert "0x0000000000401000" in res.output
+    assert "push rbp" in res.output
+    assert "mov rbp, rsp" in res.output
+    assert "ret" in res.output
+
+
+def test_cli_disassemble_writes_listing(tmp_path):
+    binary = tmp_path / "arm.bin"
+    binary.write_bytes(b"\x70\x47")
+    output = tmp_path / "arm.asm"
+    runner = CliRunner()
+    res = runner.invoke(
+        cli,
+        [
+            "disassemble",
+            str(binary),
+            "--arch",
+            "arm",
+            "--thumb",
+            "--output",
+            str(output),
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    assert output.exists()
+    assert "bx lr" in output.read_text(encoding="utf-8")
+
+
+def test_cli_disassemble_rejects_invalid_mode(tmp_path):
+    binary = tmp_path / "x86.bin"
+    binary.write_bytes(b"\x90")
+    runner = CliRunner()
+    res = runner.invoke(cli, ["disassemble", str(binary), "--arch", "x86", "--thumb"])
+    assert res.exit_code != 0
+    assert "thumb mode is only valid" in res.output

@@ -1,14 +1,15 @@
 # AI-Reverse-Agent
 
-> AI reverse-engineering helper — Stage-1 happy path.
+> AI reverse-engineering helper — multi-architecture raw disassembly + Stage-1 pipeline.
 > Seventh project of the **longyuanai AI Security Agent suite**.
 
 ## What it does (PoC)
 
-Parses a synthetic fake PE32 binary, builds a function inventory by
-joining the import directory with the local function table (and the PE
-entry point), asks the LLM (via `shared-llm-core`) for a one-line
-purpose of each, then writes a Markdown report.
+Disassembles raw binaries for six architecture families with Capstone.
+The original synthetic PE32 pipeline remains available: it builds a
+function inventory from the import directory, local function table, and
+entry point, asks the LLM (via `shared-llm-core`) for one-line purposes,
+then writes a Markdown report.
 
 ```
 fake_pe.bin ──► parse_pe ──► PeImage ──► identify_functions
@@ -72,10 +73,30 @@ python -m ai_reverse_agent.cli demo --output report.md
 python -m ai_reverse_agent.cli analyze samples/demo-pe.bin --output report.md --no-llm
 ```
 
+## Disassemble a raw binary
+
+Raw `.bin` files have no architecture metadata, so `--arch` is required.
+Common aliases such as `amd64`, `arm64`, `mips64`, and `riscv32` are accepted.
+
+```bash
+python -m ai_reverse_agent.cli disassemble firmware.bin \
+  --arch aarch64 --base-address 0x400000
+
+# ARM Thumb and big-endian MIPS are explicit modes:
+python -m ai_reverse_agent.cli disassemble thumb.bin --arch arm --thumb
+python -m ai_reverse_agent.cli disassemble mips.bin --arch mips --endian big
+```
+
+Six deterministic three-instruction fixtures live under `samples/`:
+`x86-demo.bin`, `x64-demo.bin`, `arm-demo.bin`, `aarch64-demo.bin`,
+`mips-demo.bin`, and `riscv-demo.bin`. The stable Python instruction
+stream is `ai_reverse_agent.disasm.disassemble()` and yields
+`(address, mnemonic, op_str, bytes_hex)` named tuples.
+
 ## Test
 
 ```bash
 poetry run pytest -v
 ```
 
-All 45 tests use a stubbed router; no live LLM is required.
+All tests use a stubbed router; no live LLM is required.

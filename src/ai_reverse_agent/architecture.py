@@ -100,6 +100,15 @@ _PE_MACHINE_SPECS: dict[int, tuple[Architecture, int]] = {
     0x5064: (Architecture.RISCV, 64),     # IMAGE_FILE_MACHINE_RISCV64
 }
 
+_ELF_MACHINE_ARCHITECTURES: dict[int, Architecture] = {
+    3: Architecture.X86,       # EM_386
+    8: Architecture.MIPS,      # EM_MIPS
+    40: Architecture.ARM,      # EM_ARM
+    62: Architecture.X64,      # EM_X86_64
+    183: Architecture.AARCH64, # EM_AARCH64
+    243: Architecture.RISCV,   # EM_RISCV
+}
+
 
 def resolve_architecture(
     value: Architecture | str,
@@ -147,3 +156,45 @@ def architecture_from_pe_machine(machine: int) -> ArchitectureSpec:
     except KeyError as exc:
         raise ValueError(f"Unsupported PE machine type: 0x{machine:04x}") from exc
     return ArchitectureSpec(architecture=architecture, bits=bits)
+
+
+def architecture_from_elf_machine(
+    machine: int,
+    *,
+    bits: int,
+    endianness: Endianness | str = Endianness.LITTLE,
+) -> ArchitectureSpec:
+    """Map an ELF e_machine value and ELF class to an architecture."""
+    try:
+        architecture = _ELF_MACHINE_ARCHITECTURES[machine]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported ELF machine type: {machine}") from exc
+    return resolve_architecture(architecture, bits=bits, endianness=endianness)
+
+
+def detect_elf_architecture(data: bytes) -> ArchitectureSpec:
+    """Read ELF identification fields and return a validated architecture."""
+    if len(data) < 20 or data[:4] != b"\x7fELF":
+        raise ValueError("Not an ELF file: missing or truncated ELF header")
+
+    elf_class = data[4]
+    if elf_class not in {1, 2}:
+        raise ValueError(f"Unsupported ELF class: {elf_class}")
+    bits = 32 if elf_class == 1 else 64
+
+    data_encoding = data[5]
+    if data_encoding == 1:
+        endianness = Endianness.LITTLE
+        byte_order = "little"
+    elif data_encoding == 2:
+        endianness = Endianness.BIG
+        byte_order = "big"
+    else:
+        raise ValueError(f"Unsupported ELF data encoding: {data_encoding}")
+
+    machine = int.from_bytes(data[18:20], byteorder=byte_order)
+    return architecture_from_elf_machine(
+        machine,
+        bits=bits,
+        endianness=endianness,
+    )
