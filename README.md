@@ -39,6 +39,13 @@ fake_pe.bin ──► parse_pe ──► PeImage ──► identify_functions
   unavailable, the CLI accepts `--no-llm` to substitute a deterministic
   stub router so demos remain reproducible.
 
+## Supported architectures
+
+The architecture layer normalizes x86, x64, ARM, AArch64, MIPS, and
+RISC-V names and common aliases. PE/COFF machine values are detected
+automatically; raw binaries use an explicit architecture when
+disassembly is requested.
+
 ## Install
 
 ```bash

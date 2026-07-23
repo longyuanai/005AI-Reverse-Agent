@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ai_reverse_agent.architecture import ArchitectureSpec, architecture_from_pe_machine
+
 
 @dataclass(frozen=True)
 class Section:
@@ -66,9 +68,17 @@ class PeImage:
     def entry_point(self) -> int:
         return self.optional.entry_point
 
+    @property
+    def architecture(self) -> ArchitectureSpec:
+        """Resolve the COFF machine field to a supported architecture."""
+        return architecture_from_pe_machine(self.coff.machine)
+
     def to_prompt_dict(self) -> dict[str, Any]:
         return {
             "machine": self.coff.machine,
+            "architecture": self.architecture.architecture.value,
+            "bits": self.architecture.bits,
+            "endianness": self.architecture.endianness.value,
             "timestamp": self.coff.timestamp,
             "characteristics": self.coff.characteristics,
             "entry_point": f"0x{self.optional.entry_point:08x}",

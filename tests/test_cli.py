@@ -76,6 +76,7 @@ def test_cli_demo_stdout(tmp_path, monkeypatch):
     runner = CliRunner()
     res = runner.invoke(cli, ["demo", "--provider", "stub"])
     assert res.exit_code == 0, res.output
+    assert "x64 (64-bit, little-endian)" in res.output
     assert "Function Table" in res.output
 
 

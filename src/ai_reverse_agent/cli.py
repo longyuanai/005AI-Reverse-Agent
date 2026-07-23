@@ -90,6 +90,12 @@ def cli() -> None:
     """AI-Reverse-Agent: PE parsing + function enrichment (PoC v0.1)."""
 
 
+def _print_pe_summary(pe) -> None:
+    console.print(f"  Architecture: [green]{pe.architecture.label}[/green]")
+    console.print(f"  [green]{len(pe.imports)}[/green] imports, "
+                  f"[green]{len(pe.functions)}[/green] function-table entries")
+
+
 @cli.command()
 @click.argument("path", type=click.Path(exists=True))
 @click.option("--output", "-o", "output_path", default="-", type=click.Path())
@@ -103,8 +109,7 @@ def analyze(path: str, output_path: str, provider: str, no_llm: bool) -> None:
     with open(path, "rb") as f:
         data = f.read()
     pe = parse_pe_bytes(data)
-    console.print(f"  [green]{len(pe.imports)}[/green] imports, "
-                  f"[green]{len(pe.functions)}[/green] function-table entries")
+    _print_pe_summary(pe)
 
     identified = identify_functions(pe)
     console.print(f"[bold]Identifying[/bold] {len(identified)} functions ...")
@@ -145,8 +150,7 @@ def demo(output_path: str, provider: str, no_llm: bool) -> None:
     console.print("[bold]Building[/bold] fake PE in memory ...")
     blob = make_fake_pe()
     pe = parse_pe_bytes(blob)
-    console.print(f"  [green]{len(pe.imports)}[/green] imports, "
-                  f"[green]{len(pe.functions)}[/green] function-table entries")
+    _print_pe_summary(pe)
 
     identified = identify_functions(pe)
     console.print(f"[bold]Identifying[/bold] {len(identified)} functions ...")

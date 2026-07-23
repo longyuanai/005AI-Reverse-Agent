@@ -10,7 +10,7 @@
 
 | ID | 任务 | 状态 | 启动日 | 完成日 | 备注 |
 |----|------|------|-------|-------|------|
-| ARCH-001 | 真实架构支持: x86 / x64 / ARM / AArch64 / MIPS / RISC-V | pending | | | |
+| ARCH-001 | 真实架构支持: x86 / x64 / ARM / AArch64 / MIPS / RISC-V | done | 2026-07-24 | 2026-07-24 | 架构规格、别名与 PE machine 映射 |
 | DISASM-001 | 接 Capstone 反汇编 | pending | | | |
 | DECOMP-001 | 接 Ghidra P-Code 或自研 | pending | | | |
 | FLIRT-001 | 库函数识别 (FLIRT 签名) | pending | | | |

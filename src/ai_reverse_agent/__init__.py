@@ -11,6 +11,13 @@ the fake-PE fixture without touching anything else.
 """
 
 from ai_reverse_agent.analyzer import explain_functions
+from ai_reverse_agent.architecture import (
+    Architecture,
+    ArchitectureSpec,
+    Endianness,
+    architecture_from_pe_machine,
+    resolve_architecture,
+)
 from ai_reverse_agent.datatypes import (
     EnrichedFunction,
     IdentifiedFunction,
@@ -24,14 +31,19 @@ from ai_reverse_agent.reporter import render_markdown
 __version__ = "0.1.0"
 
 __all__ = [
+    "Architecture",
+    "ArchitectureSpec",
+    "Endianness",
     "EnrichedFunction",
     "IdentifiedFunction",
     "PeImage",
     "__version__",
+    "architecture_from_pe_machine",
     "explain_functions",
     "identify_functions",
     "make_fake_pe",
     "parse_pe",
     "parse_pe_bytes",
     "render_markdown",
+    "resolve_architecture",
 ]
