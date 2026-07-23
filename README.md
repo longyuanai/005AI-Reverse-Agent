@@ -93,6 +93,17 @@ Six deterministic three-instruction fixtures live under `samples/`:
 stream is `ai_reverse_agent.disasm.disassemble()` and yields
 `(address, mnemonic, op_str, bytes_hex)` named tuples.
 
+## Produce pseudo-C
+
+The self-contained decompiler recognizes return-delimited functions and
+common stack-frame references. Unsupported lifts remain address-tagged
+assembly comments so the output never invents behavior.
+
+```bash
+python -m ai_reverse_agent.cli decompile samples/x64-demo.bin \
+  --arch x64 --base-address 0x401000
+```
+
 ## Test
 
 ```bash

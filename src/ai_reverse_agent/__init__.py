@@ -29,6 +29,16 @@ from ai_reverse_agent.disassembler import (
     format_disassembly,
 )
 from ai_reverse_agent.disasm import NormalizedInstruction
+from ai_reverse_agent.decompiler import (
+    DecompiledFunction,
+    FunctionBoundary,
+    StackVariable,
+    decompile_bytes,
+    decompile_function,
+    find_function_boundaries,
+    format_decompilation,
+    identify_stack_variables,
+)
 from ai_reverse_agent.fake_pe import make_fake_pe
 from ai_reverse_agent.identifier import identify_functions
 from ai_reverse_agent.parsers import parse_pe, parse_pe_bytes
@@ -42,14 +52,19 @@ __all__ = [
     "DisassembledInstruction",
     "DisassemblyError",
     "DisassemblyResult",
+    "DecompiledFunction",
     "Endianness",
     "EnrichedFunction",
     "IdentifiedFunction",
+    "FunctionBoundary",
     "NormalizedInstruction",
     "PeImage",
+    "StackVariable",
     "__version__",
     "architecture_from_pe_machine",
     "detect_elf_architecture",
+    "decompile_bytes",
+    "decompile_function",
     "disassemble_bytes",
     "disassemble_file",
     "explain_functions",
@@ -60,4 +75,7 @@ __all__ = [
     "render_markdown",
     "resolve_architecture",
     "format_disassembly",
+    "find_function_boundaries",
+    "format_decompilation",
+    "identify_stack_variables",
 ]

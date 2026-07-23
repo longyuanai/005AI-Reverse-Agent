@@ -23,6 +23,7 @@ from ai_reverse_agent.disassembler import (
     disassemble_file,
     format_disassembly,
 )
+from ai_reverse_agent.decompiler import decompile_bytes, format_decompilation
 from ai_reverse_agent.fake_pe import make_fake_pe
 from ai_reverse_agent.identifier import identify_functions
 from ai_reverse_agent.parsers import parse_pe_bytes
@@ -169,6 +170,49 @@ def disassemble_command(
         click.echo(listing, nl=False)
     else:
         Path(output_path).write_text(listing, encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output_path}")
+
+
+@cli.command("decompile")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--arch", "architecture", required=True)
+@click.option("--bits", type=click.Choice(["32", "64"]), default=None)
+@click.option(
+    "--endian",
+    type=click.Choice(["little", "big"], case_sensitive=False),
+    default="little",
+    show_default=True,
+)
+@click.option("--base-address", type=AUTO_INT, default="0", show_default=True)
+@click.option("--thumb", is_flag=True, help="Decode ARM Thumb instructions.")
+@click.option("--output", "-o", "output_path", default="-", type=click.Path(dir_okay=False))
+def decompile_command(
+    path: str,
+    architecture: str,
+    bits: str | None,
+    endian: str,
+    base_address: int,
+    thumb: bool,
+    output_path: str,
+) -> None:
+    """Produce conservative pseudo-C from a raw binary."""
+    try:
+        functions = decompile_bytes(
+            Path(path).read_bytes(),
+            architecture,
+            address=base_address,
+            bits=None if bits is None else int(bits),
+            endianness=endian,
+            thumb=thumb,
+        )
+    except (OSError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    pseudo_c = format_decompilation(functions)
+    if output_path == "-":
+        click.echo(pseudo_c, nl=False)
+    else:
+        Path(output_path).write_text(pseudo_c, encoding="utf-8")
         console.print(f"[green]Wrote[/green] {output_path}")
 
 
