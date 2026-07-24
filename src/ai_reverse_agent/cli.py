@@ -159,7 +159,9 @@ def _run_scan_cli(input_payload: str | None, json_output: bool) -> None:
         envelope = scan_binary(payload)
 
     if json_output:
-        click.echo(json.dumps(envelope, ensure_ascii=False))
+        # Keep subprocess output ASCII-only. On Windows, redirected stdout can
+        # otherwise use the active code page while the adapter decodes UTF-8.
+        click.echo(json.dumps(envelope, ensure_ascii=True))
         return
 
     if envelope["errors"]:

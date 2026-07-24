@@ -146,3 +146,35 @@ def test_cli_disassemble_rejects_invalid_mode(tmp_path):
     res = runner.invoke(cli, ["disassemble", str(binary), "--arch", "x86", "--thumb"])
     assert res.exit_code != 0
     assert "thumb mode is only valid" in res.output
+
+
+def test_scan_all_archs_in_samples():
+    samples = {
+        "x64": "mini_x64_pe.exe",
+        "arm": "mini_arm_elf.bin",
+        "mips": "mini_mips_elf.bin",
+    }
+    root = Path(__file__).resolve().parents[1] / "samples" / "mini_binaries"
+    runner = CliRunner()
+
+    for architecture, name in samples.items():
+        result = runner.invoke(
+            cli,
+            [
+                "scan",
+                "--input",
+                json.dumps(
+                    {
+                        "binary_path": str(root / name),
+                        "arch": architecture,
+                    }
+                ),
+                "--json",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        envelope = json.loads(result.output)
+        assert envelope["errors"] == []
+        summary = envelope["findings"][-1]
+        assert summary["metadata"]["architecture"] == architecture
+        assert summary["metadata"]["instruction_count"] >= 3

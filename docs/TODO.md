@@ -1,6 +1,6 @@
 # 005 AI-Reverse-Agent · v0.1 TODO
 
-> **项目状态**: S3 complete ✅ (150/150 tests passing)
+> **项目状态**: S4 complete ✅ (157/157 tests passing)
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) (已冻结)
 > **派活模板**: [CODEX_INSTRUCTIONS.md](../../CODEX_INSTRUCTIONS.md)
 
@@ -29,7 +29,7 @@
 | ID | 任务 | 状态 | 启动日 | 完成日 | 备注 |
 |----|------|------|-------|-------|------|
 | REV-CLI-001 | ReverseAdapter CLI 契约 | done | 2026-07-24 | 2026-07-24 | scan JSON envelope + adapter subprocess E2E |
-| REV-LIVE-001 | 多架构样本 + gateway 联调 | pending | | | |
+| REV-LIVE-001 | 多架构样本 + gateway 联调 | done | 2026-07-24 | 2026-07-24 | x64 PE + ARM/MIPS ELF；gateway :18080 E2E |
 
 ---
 

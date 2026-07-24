@@ -179,9 +179,43 @@ def _extract_elf_body(data: bytes) -> tuple[bytes, int] | None:
     if data[4] == 1:
         header_size_offset = 40
         entry = int.from_bytes(data[24:28], byte_order)
+        program_offset = int.from_bytes(data[28:32], byte_order)
+        program_entry_size = int.from_bytes(data[42:44], byte_order)
+        program_count = int.from_bytes(data[44:46], byte_order)
     else:
         header_size_offset = 52
         entry = int.from_bytes(data[24:32], byte_order)
+        program_offset = int.from_bytes(data[32:40], byte_order)
+        program_entry_size = int.from_bytes(data[54:56], byte_order)
+        program_count = int.from_bytes(data[56:58], byte_order)
+
+    for index in range(program_count):
+        offset = program_offset + index * program_entry_size
+        if program_entry_size < 32 or offset + program_entry_size > len(data):
+            break
+        program_type = int.from_bytes(data[offset : offset + 4], byte_order)
+        if data[4] == 1:
+            file_offset = int.from_bytes(data[offset + 4 : offset + 8], byte_order)
+            virtual_address = int.from_bytes(
+                data[offset + 8 : offset + 12],
+                byte_order,
+            )
+            file_size = int.from_bytes(data[offset + 16 : offset + 20], byte_order)
+            flags = int.from_bytes(data[offset + 24 : offset + 28], byte_order)
+        else:
+            flags = int.from_bytes(data[offset + 4 : offset + 8], byte_order)
+            file_offset = int.from_bytes(data[offset + 8 : offset + 16], byte_order)
+            virtual_address = int.from_bytes(
+                data[offset + 16 : offset + 24],
+                byte_order,
+            )
+            file_size = int.from_bytes(data[offset + 32 : offset + 40], byte_order)
+        if program_type == 1 and flags & 1 and file_offset < len(data):
+            return (
+                data[file_offset : file_offset + file_size],
+                virtual_address,
+            )
+
     header_size = int.from_bytes(
         data[header_size_offset : header_size_offset + 2],
         byte_order,

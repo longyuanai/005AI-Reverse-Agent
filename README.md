@@ -73,6 +73,26 @@ python -m ai_reverse_agent.cli demo --output report.md
 python -m ai_reverse_agent.cli analyze samples/demo-pe.bin --output report.md --no-llm
 ```
 
+## 扫描二进制
+
+`scan` 为 shared-integration 的 ReverseAdapter 提供稳定 JSON envelope。
+输入包含二进制路径与架构；路径会解析为绝对路径并写入 Finding 的
+`host` 字段。
+
+```bash
+echo '{"binary_path":"samples/mini_binaries/mini_x64_pe.exe","arch":"x64"}' \
+  | python -m ai_reverse_agent.cli scan --json
+```
+
+仓库包含 x64 PE、ARM ELF、MIPS ELF 三个可复现的小型样本。集成网关
+按冻结的 `FindingSource.REVERSE = "005"` 契约暴露扫描端点：
+
+```bash
+curl -X POST http://localhost:8080/v0.5/005/scan \
+  -H "Content-Type: application/json" \
+  -d '{"binary_path":"E:/path/to/binary.exe","arch":"x64"}'
+```
+
 ## Disassemble a raw binary
 
 Raw `.bin` files have no architecture metadata, so `--arch` is required.
