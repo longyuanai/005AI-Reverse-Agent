@@ -24,6 +24,13 @@
 | PATCH-001-A | 二进制 patch diff | done | 2026-07-24 | 2026-07-24 | 函数级 + normalized instruction diff |
 | CRYPTO-001-A | 加密常量识别 | done | 2026-07-24 | 2026-07-24 | AES S-box + SHA-1/SHA-256 常量表 |
 
+## v0.6 · S4
+
+| ID | 任务 | 状态 | 启动日 | 完成日 | 备注 |
+|----|------|------|-------|-------|------|
+| REV-CLI-001 | ReverseAdapter CLI 契约 | done | 2026-07-24 | 2026-07-24 | scan JSON envelope + adapter subprocess E2E |
+| REV-LIVE-001 | 多架构样本 + gateway 联调 | pending | | | |
+
 ---
 
 ## 派活模板（复制即可）

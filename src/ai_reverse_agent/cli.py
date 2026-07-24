@@ -1,6 +1,7 @@
-"""CLI: `ai-reverse-agent analyze PATH` and `ai-reverse-agent demo`.
+"""CLI entrypoint for local analysis and IntegrationGateway scans.
 
 Supports:
+  - scan          — emit a JSON Finding envelope for shared-integration
   - analyze PATH  — parse a binary from disk
   - demo          — run the entire pipeline against an in-memory fake PE
 """
@@ -28,6 +29,7 @@ from ai_reverse_agent.fake_pe import make_fake_pe
 from ai_reverse_agent.identifier import identify_functions
 from ai_reverse_agent.parsers import parse_pe_bytes
 from ai_reverse_agent.reporter import render_markdown
+from ai_reverse_agent.scan import scan_binary
 from ai_reverse_agent.signatures import match_instructions
 from ai_reverse_agent.disasm import disassemble
 from ai_reverse_agent.decompiler import find_function_boundaries
@@ -106,10 +108,67 @@ def _stub_router() -> object:
     return _Router()
 
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.version_option(__version__)
-def cli() -> None:
+@click.option("--input", "adapter_input", hidden=True)
+@click.option("--json", "adapter_json", is_flag=True, hidden=True)
+@click.pass_context
+def cli(
+    ctx: click.Context,
+    adapter_input: str | None,
+    adapter_json: bool,
+) -> None:
     """AI-Reverse-Agent: PE parsing + function enrichment (PoC v0.1)."""
+
+    if ctx.invoked_subcommand is not None:
+        return
+    if adapter_input is not None or adapter_json:
+        _run_scan_cli(adapter_input, adapter_json)
+        return
+    click.echo(ctx.get_help())
+
+
+@cli.command("scan")
+@click.option(
+    "--input",
+    "input_payload",
+    help="Inline JSON payload; when omitted, read JSON from stdin.",
+)
+@click.option("--json", "json_output", is_flag=True, help="Emit a JSON envelope.")
+def scan_command(input_payload: str | None, json_output: bool) -> None:
+    """Scan a binary for the shared IntegrationGateway adapter."""
+
+    _run_scan_cli(input_payload, json_output)
+
+
+def _run_scan_cli(input_payload: str | None, json_output: bool) -> None:
+    raw_payload = input_payload
+    if raw_payload is None:
+        raw_payload = click.get_text_stream("stdin").read()
+
+    try:
+        payload = json.loads(raw_payload)
+        if not isinstance(payload, dict):
+            raise ValueError("scan payload must be a JSON object")
+    except (json.JSONDecodeError, ValueError) as exc:
+        envelope = {
+            "findings": [],
+            "errors": [{"code": "invalid_payload", "message": str(exc)}],
+        }
+    else:
+        envelope = scan_binary(payload)
+
+    if json_output:
+        click.echo(json.dumps(envelope, ensure_ascii=False))
+        return
+
+    if envelope["errors"]:
+        for error in envelope["errors"]:
+            click.echo(f"ERROR {error['code']}: {error['message']}")
+        return
+    click.echo(f"Findings: {len(envelope['findings'])}")
+    for finding in envelope["findings"]:
+        click.echo(f"- [{finding['severity']}] {finding['title']}")
 
 
 def _print_pe_summary(pe) -> None:
