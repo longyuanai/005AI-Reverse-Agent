@@ -90,6 +90,7 @@ from ai_reverse_agent.crypto_id import (
     identify_crypto,
     identify_crypto_file,
 )
+from ai_reverse_agent.adapter import ReverseProductAdapter
 
 __version__ = "0.1.0"
 
@@ -120,6 +121,7 @@ __all__ = [
     "NormalizedInstruction",
     "PatchDiffResult",
     "PeImage",
+    "ReverseProductAdapter",
     "StackVariable",
     "Symbol",
     "SymbolicBackendUnavailable",
