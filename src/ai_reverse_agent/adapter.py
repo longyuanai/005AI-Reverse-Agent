@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator
+from typing import Any
+from collections.abc import AsyncIterator
 
 from shared_llm_core.finding import Finding, FindingSeverity, FindingSource
 from shared_llm_core.gateway import ProductAdapter

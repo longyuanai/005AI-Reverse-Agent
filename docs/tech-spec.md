@@ -346,7 +346,7 @@ def compute_imphash(imports: list[str]) -> str:
 - `tests/test_imphash_algo.py` —— 用已知 imphash fixture 验证算法
 - `tests/test_imphash_db_match.py` —— 注入一条已知 hash,assert 命中
 - `tests/test_imphash_no_match.py` —— 注入未知 hash,assert 不命中
-- **不**联外网 —— 病毒库是本地 `data/malware_imphashes.json`
+- **不**联外网 —— 病毒库是本地 `src/ai_reverse_agent/data/malware_imphashes.json`
 
 **commit 计划**(2 commit):
 

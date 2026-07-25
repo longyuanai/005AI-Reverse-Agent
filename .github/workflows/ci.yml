@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: ["master", "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # Installed directly rather than through Poetry: `shared-llm-core` is a
+      # relative path dependency on a sibling repository that does not exist in
+      # a standalone checkout. The static-analysis layers do not need it, so CI
+      # exercises them without the suite.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install capstone click rich pytest pytest-mock ruff
+
+      - name: Lint
+        run: python -m ruff check src tests scripts
+
+      - name: Test
+        env:
+          PYTHONPATH: src
+        run: python -m pytest -v
+
+      - name: Smoke-test the static-analysis CLI without shared-llm-core
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m ai_reverse_agent.cli disassemble samples/x64-demo.bin --arch x64
+          python -m ai_reverse_agent.cli crypto-id samples/demo-pe.bin
+          echo '{"binary_path":"samples/mini_binaries/mini_x64_pe.exe","arch":"x64"}' \
+            | python -m ai_reverse_agent.cli scan --json

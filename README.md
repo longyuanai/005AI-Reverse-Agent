@@ -49,10 +49,24 @@ disassembly is requested.
 
 ## Install
 
+The static-analysis layers (disassembly, decompilation, CFG, crypto
+constants, PE/ELF imports) need only Capstone. `shared-llm-core` is an
+optional extra used by `analyze`, `demo`, and the gateway adapter, so a
+standalone checkout installs and tests without the sibling repository.
+
 ```bash
 cd 005AI逆向Agent
+
+# Standalone: everything except LLM enrichment and the Finding adapter.
 poetry install
+
+# Full suite checkout, with ../000shared-llm-core present.
+poetry install --extras suite
 ```
+
+Importing the package is lazy — `import ai_reverse_agent` pulls in neither
+Capstone nor `shared-llm-core`; each public name imports its own module on
+first access.
 
 ## Run the demo
 
@@ -179,10 +193,36 @@ from different targets.
 python -m ai_reverse_agent.cli crypto-id firmware.bin
 ```
 
+## Known-malware imphash database
+
+The local fixture database ships inside the package at
+`src/ai_reverse_agent/data/malware_imphashes.json`, so it is found after a
+normal install. Point at a different file with `AI_REVERSE_IMPHASH_DB`.
+
+Its `algorithm` field is `sorted-imports-md5` — the imports are lowercased,
+sorted, and joined before hashing. That is **not** the pefile/VirusTotal
+imphash, so these digests do not cross-reference public threat feeds.
+
+If the database is missing or malformed, `scan` still reports the computed
+digest and records the reason in `metadata.imphash_error` instead of failing
+the envelope.
+
 ## Test
 
 ```bash
 poetry run pytest -v
 ```
 
-All tests use a stubbed router; no live LLM is required.
+No live LLM is required. Tests that need `shared-llm-core` or the sibling
+`000shared-integration` checkout skip themselves when those are absent, so a
+standalone run is green:
+
+```bash
+PYTHONPATH=src pytest -q     # 162 passed, 10 skipped
+```
+
+Lint with the checked-in ruff configuration:
+
+```bash
+poetry run ruff check src tests scripts
+```

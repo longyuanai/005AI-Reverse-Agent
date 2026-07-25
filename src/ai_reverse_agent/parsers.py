@@ -208,7 +208,11 @@ def _read_imports(
     terminator entry.
     """
     sec = next(
-        (s for s in sections if s.virtual_address <= import_rva < s.virtual_address + s.virtual_size),
+        (
+            s
+            for s in sections
+            if s.virtual_address <= import_rva < s.virtual_address + s.virtual_size
+        ),
         None,
     )
     if sec is None or sec.name not in raw_by_name:

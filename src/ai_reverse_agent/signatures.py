@@ -125,5 +125,9 @@ def _matches(prefix: bytes, signature: LibrarySignature) -> bool:
         return False
     return all(
         mask == 0 or actual == expected
-        for actual, expected, mask in zip(prefix, signature.pattern, signature.mask)
+        # `prefix` is the full 16-byte window and is normally longer than the
+        # signature, so the shortest-input zip semantics are intentional here.
+        for actual, expected, mask in zip(
+            prefix, signature.pattern, signature.mask, strict=False
+        )
     )

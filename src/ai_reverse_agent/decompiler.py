@@ -230,7 +230,7 @@ def _instruction_to_c(
         return f"{_target_name(operands)}();"
     if mnemonic in {"jmp", "b", "bra"}:
         return f"goto {_target_name(operands)};"
-    if mnemonic in _CONDITIONAL_JUMPS or mnemonic.startswith("j") and mnemonic != "jmp":
+    if mnemonic in _CONDITIONAL_JUMPS or (mnemonic.startswith("j") and mnemonic != "jmp"):
         return f"if (/* {mnemonic} */) goto {_target_name(operands)};"
 
     left, separator, right = operands.partition(",")

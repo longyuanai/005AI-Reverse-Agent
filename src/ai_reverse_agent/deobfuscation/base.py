@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 from shared_llm_core.finding import Finding, FindingSeverity, FindingSource
 from shared_llm_core.rule_engine import Rule, RuleContext

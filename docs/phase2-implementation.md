@@ -5,7 +5,7 @@ Phase-2 implements Hook A (architecture-neutral deobfuscation rules) and Hook B
 
 - All sample handling is static. No analysed binary is executed.
 - Files over 100 MiB are rejected before a full read with `MagicError`.
-- The malware database is the checked-in `data/malware_imphashes.json`; no
+- The malware database is the checked-in `src/ai_reverse_agent/data/malware_imphashes.json`; no
   network lookup is performed.
 - CLI enrichment is opt-in with `enrich: ["imphash", "iat_list"]`. Requests
   without `enrich` retain the v0.5 envelope fields and existing finding order.
