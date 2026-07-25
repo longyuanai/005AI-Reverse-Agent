@@ -6,7 +6,6 @@ import hashlib
 import json
 import struct
 import sys
-from pathlib import Path
 
 from build_mini_binaries import ROOT, build_x64_pe
 
@@ -227,7 +226,8 @@ def build_imphash_database() -> None:
                 "source": "local-generated-fixture",
             }
         )
-    output = ROOT / "data" / "malware_imphashes.json"
+    # Lives inside the package so it ships in the wheel; see iat/db.py.
+    output = ROOT / "src" / "ai_reverse_agent" / "data" / "malware_imphashes.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(
