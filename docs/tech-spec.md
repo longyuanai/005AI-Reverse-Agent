@@ -240,4 +240,154 @@ LLM 四种角色，**所有产出都标注置信度 + 证据**：
 
 ---
 
-> 本方案为 Codex 阶段用稿，后续以 RFC / PRD 形式细化。
+## 13. Phase-2 实施(v0.6+ 改造指令)
+
+> **本文是 Codex 实施 Phase-2 的入口**。路线图 v0.6 之后所有改动以此为准。
+
+### 13.1 Hook A · multi-arch 反混淆(v0.6)
+
+**目标**:在已有反汇编基础上,识别常见混淆模式(CFF / opaque predicates / 字符串加密),从"反汇编"升级到"分析"。
+
+**新增文件**:
+
+```
+src/ai_reverse_agent/deobfuscation/
+├── __init__.py
+├── base.py              # ObfuscationRule 抽象基类(继承 v0.5 §8 Rule)
+├── cff.py               # 控制流平坦化:检测 switch dispatcher + 大量顺序跳转
+├── opaque_pred.py       # 不透明谓词:检测恒真/恒假分支
+├── string_xor.py        # 字符串 XOR 加密
+├── string_rc4.py        # 字符串 RC4 加密
+└── block_stats.py       # 基础块直方图(baseline 对比)
+```
+
+**Rule 形状**(走 v0.5 §8 RuleEngine):
+
+```python
+from shared_llm_core.rule_engine import Rule, RuleContext, RuleHit
+
+class ControlFlowFlatteningRule(Rule):
+    id = "reverse.control-flow-flatten"
+    tactic = "AML.T0048"  # ATLAS: Erode ML Model Integrity(适配二进制层:混淆)
+    severity_default = FindingSeverity.MEDIUM
+
+    def match(self, ctx: RuleContext) -> bool:
+        func = ctx.function
+        blocks = func.basic_blocks
+        # CFF 特征:switch dispatcher + 大量连续跳转
+        return block_stats.has_switch_dispatcher(blocks)
+
+    def evaluate(self, ctx: RuleContext) -> RuleHit:
+        return RuleHit(rule_id=self.id, confidence=0.7, narrative="疑似控制流平坦化")
+```
+
+**集成方式**:
+
+- `pyproject.toml` 加 entry_points:`[project.entry-points."longyuanai.reverse_rules"]`
+- `src/ai_reverse_agent/analyzer.py` —— 调 `RuleEngine.load_entry_points("longyuanai.reverse_rules")`
+
+**测试要求**:
+
+- `tests/test_cff_detection.py` —— 用 `samples/obfuscated/cff_demo.exe`(已知混淆样本)
+- `tests/test_opaque_pred.py` —— `samples/obfuscated/opaque_demo.exe`
+- `tests/test_string_xor.py` —— `samples/obfuscated/strings_xor.exe`
+- `tests/test_baseline_normal.py` —— `samples/normal/normal_x64.exe` 应**不**触发混淆规则(确保不误报)
+- ≥ 1 test per 规则
+
+**commit 计划**(3 commit):
+
+1. `feat(deobfuscation): add ObfuscationRule base + entry_points + block_stats`
+2. `feat(deobfuscation): add CFF + opaque predicate + string XOR rules`
+3. `test(deobfuscation): add 4 obfuscated fixtures + 1 normal baseline + per-rule tests`
+
+### 13.2 Hook B · IAT / imphash 数据库(v0.7)
+
+**目标**:从 PE/ELF 的 IAT 提取 API 调用,生成 imphash,与已知病毒库 hash 对照。
+
+**新增文件**:
+
+```
+src/ai_reverse_agent/iat/
+├── __init__.py
+├── pe_iat.py            # PE IAT 解析
+├── elf_iat.py           # ELF .got/.plt 解析
+├── imphash.py           # imphash 算法(FBI 标准,MurmurHash3 of sorted imports)
+└── db.py                # 已知 malware imphash(本地 fixture JSON,≥ 1000 样本)
+```
+
+**imphash 算法**(FBI 格式):
+
+```python
+def compute_imphash(imports: list[str]) -> str:
+    """
+    1. 取 imports + hint names,小写
+    2. 按字典序排序
+    3. 用 ',' 连接
+    4. MD5
+    """
+    cleaned = sorted(f"{imp.lower()}.{hint.lower()}" for imp, hint in imports)
+    return hashlib.md5(",".join(cleaned).encode()).hexdigest()
+```
+
+**CLI payload 增量**:
+
+```json
+{"binary_path": "samples/malware_x64.exe", "enrich": ["imphash", "iat_list"]}
+```
+
+**集成方式**:
+
+- `src/ai_reverse_agent/findings.py` —— imphash 命中已知库时产 Finding(`severity=HIGH`,`title="imphash matched known malware X"`)
+
+**测试要求**:
+
+- `tests/test_pe_iat.py` —— `samples/pe/mini_x64_pe.exe` 提取 IAT
+- `tests/test_elf_iat.py` —— `samples/elf/mini_x64_elf.bin`
+- `tests/test_imphash_algo.py` —— 用已知 imphash fixture 验证算法
+- `tests/test_imphash_db_match.py` —— 注入一条已知 hash,assert 命中
+- `tests/test_imphash_no_match.py` —— 注入未知 hash,assert 不命中
+- **不**联外网 —— 病毒库是本地 `data/malware_imphashes.json`
+
+**commit 计划**(2 commit):
+
+1. `feat(iat): add PE/ELF IAT parser + imphash algorithm + local malware DB fixture`
+2. `feat(findings): emit Finding when imphash matches known malware`
+
+### 13.3 Hook C · Ghidra headless 集成(Phase-3+ 候选,不在本仓本次实施)
+
+**方向**:用 Ghidra headless mode(analyzeHeadless)导出 `.xml`,本仓解析 + 标注。复杂度高,留 v1.0+。
+
+### 13.4 Hook D · YARA 规则生成(Phase-3+ 候选)
+
+**方向**:基于 reverse 发现(混淆模式 + imphash + 关键函数 hash),自动生成 YARA rule。
+
+### 13.5 不要做的事
+
+- ❌ **不**在 Windows native 路径上跑(Windows 上 capstone 对新 arch 支持不全,**Linux runner 更稳**)
+- ❌ **不**解析大文件(> 100MB)—— 必须先取 header 拒绝,`MagicError` 时优雅退出
+- ❌ **不**尝试 sandbox 执行(本仓是**静态分析**,执行就是 SOC 仓的活)
+- ❌ **不**改 `Finding` schema(共享契约,改了就破 v0.5 冻结)
+- ❌ **不**动 `tests/test_cli_envelope.py`(§15 契约测试是冻结基线)
+- ❌ **不**联外网(已知 imphash 库用本地 fixture)
+
+### 13.6 验收清单
+
+Codex 完工后跑:
+
+```powershell
+& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
+  -m pytest tests/ `
+  --basetemp=C:/pytest-tmp/005-phase2 `
+  -o addopts= `
+  -q --tb=short
+
+& 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
+  -m ai_reverse_agent scan --input '{"binary_path":"samples/mini_binaries/mini_x64_pe.exe"}' --json
+```
+
+预期:≥ 185 passed(原 167 + Phase-2 新增 18);CLI envelope 仍是 `{"findings": [...], "summary": {...}}`。
+
+---
+
+**最近修订**: 2026-07-25 · Claude 把 PHASE-2.md 合并进 §13
+**下次回看触发**: v0.6 启动 / Hook A 启动 / imphash 数据库接入
