@@ -9,6 +9,9 @@ from ai_reverse_agent.magic import MagicError, read_static_file, validate_bytes
 
 from .imphash import ImportedSymbol
 
+_SHT_NOBITS = 8
+_SHT_DYNSYM = 11
+
 
 def extract_elf_imports(source: str | Path | bytes) -> tuple[ImportedSymbol, ...]:
     """Extract undefined dynamic symbols from a local ELF image."""
@@ -58,12 +61,15 @@ def parse_elf_imports(data: bytes) -> tuple[ImportedSymbol, ...]:
     sections = []
     for index in range(section_count):
         offset = section_offset + index * section_entry_size
-        fields = struct.unpack_from(section_format, data, offset)
-        if elf_class == 1:
-            name, section_type, _, _, file_offset, size, link, _, _, entry_size = fields
-        else:
-            name, section_type, _, _, file_offset, size, link, _, _, entry_size = fields
-        if file_offset + size > len(data):
+        # Elf32_Shdr and Elf64_Shdr order their fields identically; only the
+        # widths differ, which `section_format` already encodes.
+        name, section_type, _, _, file_offset, size, link, _, _, entry_size = (
+            struct.unpack_from(section_format, data, offset)
+        )
+        # SHT_NOBITS (.bss) occupies no file space, so sh_offset + sh_size
+        # legitimately runs past EOF. Bounds-checking it rejects most real
+        # executables, so only file-backed sections are checked here.
+        if section_type != _SHT_NOBITS and file_offset + size > len(data):
             raise MagicError(f"ELF section {index} exceeds file bounds")
         sections.append(
             {
@@ -85,8 +91,10 @@ def parse_elf_imports(data: bytes) -> tuple[ImportedSymbol, ...]:
     imports: list[ImportedSymbol] = []
     expected_symbol_size = struct.calcsize(symbol_format)
     for section in sections:
+        if section["type"] == _SHT_NOBITS:
+            continue
         section_name = _table_string(names, section["name_offset"])
-        if section["type"] != 11 and section_name != ".dynsym":
+        if section["type"] != _SHT_DYNSYM and section_name != ".dynsym":
             continue
         if section["link"] >= len(sections):
             raise MagicError("ELF dynamic-symbol string-table link is invalid")
@@ -100,11 +108,13 @@ def parse_elf_imports(data: bytes) -> tuple[ImportedSymbol, ...]:
         count = section["size"] // entry_size
         for index in range(count):
             offset = section["offset"] + index * entry_size
+            if offset + expected_symbol_size > len(data):
+                raise MagicError("ELF dynamic-symbol table exceeds file bounds")
             fields = struct.unpack_from(symbol_format, data, offset)
             if elf_class == 1:
-                name_offset, value, _, info, _, section_index = fields
+                name_offset, value, _, _, _, section_index = fields
             else:
-                name_offset, info, _, section_index, value, _ = fields
+                name_offset, _, _, section_index, value, _ = fields
             if index == 0 or section_index != 0 or name_offset == 0:
                 continue
             name = _table_string(strings, name_offset)
