@@ -22,6 +22,12 @@ pytest-mock = "^3.14.0"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+[project.entry-points."longyuanai.reverse_rules"]
+cff = "ai_reverse_agent.deobfuscation.cff:ControlFlowFlatteningRule"
+opaque_predicate = "ai_reverse_agent.deobfuscation.opaque_pred:OpaquePredicateRule"
+string_xor = "ai_reverse_agent.deobfuscation.string_xor:XorStringRule"
+string_rc4 = "ai_reverse_agent.deobfuscation.string_rc4:Rc4StringRule"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--basetemp=.pytest-tmp"
