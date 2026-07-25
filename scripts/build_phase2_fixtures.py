@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import struct
+import sys
 from pathlib import Path
 
 from build_mini_binaries import ROOT, build_x64_pe
+
+sys.path.insert(0, str(ROOT / "src"))
+from ai_reverse_agent.fake_pe import make_fake_pe
 
 
 def _rc4(data: bytes, key: bytes) -> bytes:
@@ -73,8 +80,169 @@ def build_obfuscation_fixtures() -> None:
     )
 
 
+def build_pe_iat_fixture() -> bytes:
+    """Return the existing fake PE with standards-compliant name thunks."""
+    image = bytearray(make_fake_pe())
+    for index in range(5):
+        offset = 0xA00 + index * 8
+        thunk = int.from_bytes(image[offset : offset + 4], "little")
+        image[offset : offset + 4] = (thunk & 0x7FFFFFFF).to_bytes(4, "little")
+    return bytes(image)
+
+
+def _align(value: int, alignment: int) -> int:
+    return (value + alignment - 1) // alignment * alignment
+
+
+def build_elf_iat_fixture() -> bytes:
+    """Return a minimal ELF64 image with two undefined dynamic symbols."""
+    section_names = b"\0.shstrtab\0.dynstr\0.dynsym\0"
+    dynamic_strings = b"\0puts\0printf\0"
+    dynamic_symbols = b"\0" * 24
+    dynamic_symbols += struct.pack("<IBBHQQ", 1, 0x12, 0, 0, 0, 0)
+    dynamic_symbols += struct.pack("<IBBHQQ", 6, 0x12, 0, 0, 0, 0)
+
+    names_offset = 64
+    strings_offset = _align(names_offset + len(section_names), 8)
+    symbols_offset = _align(strings_offset + len(dynamic_strings), 8)
+    sections_offset = _align(symbols_offset + len(dynamic_symbols), 8)
+    ident = b"\x7fELF" + bytes([2, 1, 1, 0, 0]) + bytes(7)
+    header = struct.pack(
+        "<16sHHIQQQIHHHHHH",
+        ident,
+        3,
+        62,
+        1,
+        0,
+        0,
+        sections_offset,
+        0,
+        64,
+        0,
+        0,
+        64,
+        4,
+        1,
+    )
+    image = bytearray(header)
+    image.extend(b"\0" * (names_offset - len(image)))
+    image.extend(section_names)
+    image.extend(b"\0" * (strings_offset - len(image)))
+    image.extend(dynamic_strings)
+    image.extend(b"\0" * (symbols_offset - len(image)))
+    image.extend(dynamic_symbols)
+    image.extend(b"\0" * (sections_offset - len(image)))
+
+    section_header = "<IIQQQQIIQQ"
+    image.extend(struct.pack(section_header, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    image.extend(
+        struct.pack(
+            section_header,
+            section_names.index(b".shstrtab"),
+            3,
+            0,
+            0,
+            names_offset,
+            len(section_names),
+            0,
+            0,
+            1,
+            0,
+        )
+    )
+    image.extend(
+        struct.pack(
+            section_header,
+            section_names.index(b".dynstr"),
+            3,
+            0,
+            0,
+            strings_offset,
+            len(dynamic_strings),
+            0,
+            0,
+            1,
+            0,
+        )
+    )
+    image.extend(
+        struct.pack(
+            section_header,
+            section_names.index(b".dynsym"),
+            11,
+            2,
+            0,
+            symbols_offset,
+            len(dynamic_symbols),
+            2,
+            1,
+            8,
+            24,
+        )
+    )
+    return bytes(image)
+
+
+def build_iat_fixtures() -> None:
+    pe_output = ROOT / "samples" / "pe"
+    elf_output = ROOT / "samples" / "elf"
+    pe_output.mkdir(parents=True, exist_ok=True)
+    elf_output.mkdir(parents=True, exist_ok=True)
+    pe_output.joinpath("mini_x64_pe.exe").write_bytes(build_pe_iat_fixture())
+    elf_output.joinpath("mini_x64_elf.bin").write_bytes(build_elf_iat_fixture())
+
+
+def build_imphash_database() -> None:
+    known_imports = sorted(
+        [
+            "kernel32.dll.createfilew",
+            "user32.dll.messageboxw",
+            "msvcrt.dll.printf",
+            "ws2_32.dll.connect",
+            "advapi32.dll.regopenkeyexw",
+        ]
+    )
+    known_hash = hashlib.md5(
+        ",".join(known_imports).encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()
+    samples = [
+        {
+            "imphash": known_hash,
+            "family": "phase2-known-fixture",
+            "sample_id": "mini-x64-pe",
+            "source": "local-test-fixture",
+        }
+    ]
+    for index in range(1, 1000):
+        digest = hashlib.md5(
+            f"local-malware-fixture-{index:04d}".encode("ascii"),
+            usedforsecurity=False,
+        ).hexdigest()
+        samples.append(
+            {
+                "imphash": digest,
+                "family": f"fixture-family-{index % 37:02d}",
+                "sample_id": f"fixture-{index:04d}",
+                "source": "local-generated-fixture",
+            }
+        )
+    output = ROOT / "data" / "malware_imphashes.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(
+            {"schema_version": 1, "algorithm": "sorted-imports-md5", "samples": samples},
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> None:
     build_obfuscation_fixtures()
+    build_iat_fixtures()
+    build_imphash_database()
 
 
 if __name__ == "__main__":
