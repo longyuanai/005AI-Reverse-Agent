@@ -353,7 +353,7 @@ import_set_hash = md5(",".join(sorted(normalize(all_imports))).encode())
 - `tests/test_imphash_algo.py` —— 用已知 imphash fixture 验证算法
 - `tests/test_imphash_db_match.py` —— 注入一条已知 hash,assert 命中
 - `tests/test_imphash_no_match.py` —— 注入未知 hash,assert 不命中
-- **不**联外网 —— 病毒库是本地 `data/malware_imphashes.json`
+- **不**联外网 —— 病毒库是本地 `src/ai_reverse_agent/data/malware_imphashes.json`（随包发布，可用 `AI_REVERSE_IMPHASH_DB` 覆盖）
 
 **commit 计划**(2 commit):
 
