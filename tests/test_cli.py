@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from ai_reverse_agent.cli import cli
+
+
+# `analyze` and `demo` drive the LLM enricher, which needs the shared suite
+# package even in --no-llm mode (the stub still builds ChatResponse objects).
+# Every other subcommand is pure static analysis and runs unconditionally.
+requires_shared_llm_core = pytest.mark.skipif(
+    importlib.util.find_spec("shared_llm_core") is None,
+    reason="suite extra not installed",
+)
 
 
 def _stub_router_class():
@@ -54,6 +65,7 @@ def test_cli_help():
     assert "reverse" in res.output.lower() or "AI" in res.output
 
 
+@requires_shared_llm_core
 def test_cli_demo_writes_report(tmp_path, monkeypatch):
     out = tmp_path / "report.md"
     stub_cls = _stub_router_class()
@@ -69,6 +81,7 @@ def test_cli_demo_writes_report(tmp_path, monkeypatch):
     assert "kernel32.dll" in text
 
 
+@requires_shared_llm_core
 def test_cli_demo_stdout(tmp_path, monkeypatch):
     """Without --output, the report goes to stdout."""
     stub_cls = _stub_router_class()
@@ -86,6 +99,7 @@ def test_cli_analyze_missing_file(tmp_path):
     assert res.exit_code != 0
 
 
+@requires_shared_llm_core
 def test_cli_analyze_runs_on_real_blob(tmp_path, monkeypatch):
     from ai_reverse_agent.fake_pe import make_fake_pe
 

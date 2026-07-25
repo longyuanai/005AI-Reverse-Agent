@@ -6,6 +6,10 @@ import json
 
 import pytest
 
+# Exercises the shared-suite integration layer; the static-analysis tests
+# next to it run without the sibling 000shared-llm-core checkout.
+pytest.importorskip("shared_llm_core", reason="suite extra not installed")
+
 from ai_reverse_agent.analyzer import explain_function, explain_functions
 from ai_reverse_agent.datatypes import EnrichedFunction, IdentifiedFunction
 from ai_reverse_agent.fake_pe import make_fake_pe

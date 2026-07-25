@@ -8,9 +8,7 @@ import time
 from collections.abc import Iterator
 from pathlib import Path
 
-import httpx
 import pytest
-import uvicorn
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,7 +17,16 @@ INTEGRATION_SRC = SUITE_ROOT / "000shared-integration" / "src"
 if str(INTEGRATION_SRC) not in sys.path:
     sys.path.insert(0, str(INTEGRATION_SRC))
 
-from shared_integration.gateway import build_gateway
+pytestmark = pytest.mark.integration
+
+# These run only in a full suite checkout: they need the sibling
+# 000shared-integration source tree plus an ASGI server and HTTP client.
+httpx = pytest.importorskip("httpx", reason="integration extra not installed")
+uvicorn = pytest.importorskip("uvicorn", reason="integration extra not installed")
+build_gateway = pytest.importorskip(
+    "shared_integration.gateway",
+    reason="requires the sibling 000shared-integration checkout",
+).build_gateway
 
 
 @pytest.fixture(scope="module")

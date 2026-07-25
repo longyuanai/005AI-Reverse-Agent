@@ -11,14 +11,12 @@ from __future__ import annotations
 import json
 import os
 import sys
-from io import BytesIO
 from pathlib import Path
 
 import click
 from rich.console import Console
 
 from ai_reverse_agent import __version__
-from ai_reverse_agent.analyzer import explain_functions
 from ai_reverse_agent.disassembler import (
     DisassemblyError,
     disassemble_file,
@@ -48,6 +46,21 @@ from ai_reverse_agent.controlflow import (
 
 
 console = Console()
+
+
+def _load_enricher():
+    """Import the LLM enricher on demand.
+
+    Only `analyze` and `demo` need shared-llm-core; every other subcommand is
+    pure static analysis and must keep working without the suite package.
+    """
+    try:
+        from ai_reverse_agent.analyzer import explain_functions
+    except ImportError as exc:  # pragma: no cover - environment dependent
+        raise click.ClickException(
+            f"LLM enrichment requires the 'shared-llm-core' package: {exc}"
+        ) from exc
+    return explain_functions
 
 
 def _stub_router() -> object:
@@ -156,7 +169,21 @@ def _run_scan_cli(input_payload: str | None, json_output: bool) -> None:
             "errors": [{"code": "invalid_payload", "message": str(exc)}],
         }
     else:
-        envelope = scan_binary(payload)
+        try:
+            envelope = scan_binary(payload)
+        except Exception as exc:
+            # IntegrationGateway parses stdout as JSON, so an unexpected
+            # failure has to be reported inside the envelope, not as a
+            # traceback on stderr.
+            envelope = {
+                "findings": [],
+                "errors": [
+                    {
+                        "code": "internal_error",
+                        "message": f"{type(exc).__name__}: {exc}",
+                    }
+                ],
+            }
 
     if json_output:
         # Keep subprocess output ASCII-only. On Windows, redirected stdout can
@@ -518,6 +545,7 @@ def analyze(path: str, output_path: str, provider: str, no_llm: bool) -> None:
     console.print(f"[bold]Identifying[/bold] {len(identified)} functions ...")
 
     console.print("[bold]Enriching[/bold] functions via shared-llm-core ...")
+    explain_functions = _load_enricher()
     if no_llm:
         router = _stub_router()
     else:
@@ -559,6 +587,7 @@ def demo(output_path: str, provider: str, no_llm: bool) -> None:
     console.print(f"[bold]Identifying[/bold] {len(identified)} functions ...")
 
     console.print("[bold]Enriching[/bold] functions via shared-llm-core ...")
+    explain_functions = _load_enricher()
     if no_llm:
         router = _stub_router()
     else:

@@ -5,6 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+# Exercises the shared-suite integration layer; the static-analysis tests
+# next to it run without the sibling 000shared-llm-core checkout.
+pytest.importorskip("shared_llm_core", reason="suite extra not installed")
+
 from click.testing import CliRunner
 from shared_llm_core.finding import FindingSeverity, FindingSource
 

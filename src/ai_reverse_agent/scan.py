@@ -9,8 +9,8 @@ from typing import Any
 from ai_reverse_agent.architecture import resolve_architecture
 from ai_reverse_agent.crypto_id import identify_crypto
 from ai_reverse_agent.disasm import disassemble
-from ai_reverse_agent.findings import imphash_finding
 from ai_reverse_agent.iat import (
+    MalwareImphashDBUnavailable,
     compute_imphash,
     parse_elf_imports,
     parse_pe_imports,
@@ -143,7 +143,22 @@ def _apply_import_enrichment(
         return
     digest = compute_imphash(imported)
     summary_metadata["imphash"] = digest
-    finding = imphash_finding(imported, host=str(path))
+
+    # Imported lazily: findings.py needs shared-llm-core, but disassembly and
+    # IAT extraction do not, and a missing suite package must not break `scan`.
+    try:
+        from ai_reverse_agent.findings import imphash_finding
+    except ImportError as exc:
+        summary_metadata["imphash_error"] = f"finding builder unavailable: {exc}"
+        return
+
+    try:
+        finding = imphash_finding(imported, host=str(path))
+    except (MalwareImphashDBUnavailable, ValueError) as exc:
+        # A missing or malformed local database degrades the scan to
+        # "imphash computed, not compared" rather than failing the envelope.
+        summary_metadata["imphash_error"] = str(exc)
+        return
     if finding is None:
         return
     item = finding.to_dict()
