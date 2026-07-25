@@ -9,6 +9,13 @@ from typing import Any
 from ai_reverse_agent.architecture import resolve_architecture
 from ai_reverse_agent.crypto_id import identify_crypto
 from ai_reverse_agent.disasm import disassemble
+from ai_reverse_agent.findings import imphash_finding
+from ai_reverse_agent.iat import (
+    compute_imphash,
+    parse_elf_imports,
+    parse_pe_imports,
+)
+from ai_reverse_agent.magic import MagicError, read_static_file
 
 
 def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
@@ -40,7 +47,7 @@ def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
         return _error_envelope("unsupported_architecture", str(exc))
 
     try:
-        data = path.read_bytes()
+        data = read_static_file(path)
         code, base_address, container = _extract_code(data)
         instructions = tuple(
             disassemble(
@@ -52,10 +59,34 @@ def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
                 count=256,
             )
         )
+    except MagicError as exc:
+        return _error_envelope("magic_error", str(exc))
     except (OSError, RuntimeError, ValueError) as exc:
         return _error_envelope("analysis_failed", str(exc))
 
     findings = _security_findings(data, path)
+    summary_metadata = {
+        "architecture": spec.architecture.value,
+        "bits": spec.bits,
+        "endianness": spec.endianness.value,
+        "container": container,
+        "instruction_count": len(instructions),
+        "binary_size": len(data),
+    }
+    requested_enrichment = payload.get("enrich", ())
+    if isinstance(requested_enrichment, (list, tuple, set)):
+        requested = {str(value).lower() for value in requested_enrichment}
+    else:
+        requested = set()
+    if requested & {"imphash", "iat_list"}:
+        _apply_import_enrichment(
+            data=data,
+            container=container,
+            path=path,
+            requested=requested,
+            findings=findings,
+            summary_metadata=summary_metadata,
+        )
     findings.append(
         {
             "id": _finding_id(data, "summary"),
@@ -71,17 +102,53 @@ def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
                 f"container={container}; architecture={spec.label}; "
                 f"instructions={len(instructions)}"
             ),
-            "metadata": {
-                "architecture": spec.architecture.value,
-                "bits": spec.bits,
-                "endianness": spec.endianness.value,
-                "container": container,
-                "instruction_count": len(instructions),
-                "binary_size": len(data),
-            },
+            "metadata": summary_metadata,
         }
     )
     return {"findings": findings, "errors": []}
+
+
+def _apply_import_enrichment(
+    *,
+    data: bytes,
+    container: str,
+    path: Path,
+    requested: set[str],
+    findings: list[dict[str, Any]],
+    summary_metadata: dict[str, Any],
+) -> None:
+    try:
+        if container == "pe":
+            imported = parse_pe_imports(data)
+        elif container == "elf":
+            imported = parse_elf_imports(data)
+        else:
+            raise MagicError("unsupported container for IAT extraction")
+    except MagicError as exc:
+        summary_metadata["iat_error"] = str(exc)
+        return
+
+    summary_metadata["import_count"] = len(imported)
+    if "iat_list" in requested:
+        summary_metadata["iat_list"] = [
+            {
+                "library": item.library,
+                "name": item.name,
+                "hint": item.hint,
+                "address": item.address,
+            }
+            for item in imported
+        ]
+    if "imphash" not in requested:
+        return
+    digest = compute_imphash(imported)
+    summary_metadata["imphash"] = digest
+    finding = imphash_finding(imported, host=str(path))
+    if finding is None:
+        return
+    item = finding.to_dict()
+    item["narrative"] = finding.description
+    findings.append(item)
 
 
 def _security_findings(data: bytes, path: Path) -> list[dict[str, Any]]:
