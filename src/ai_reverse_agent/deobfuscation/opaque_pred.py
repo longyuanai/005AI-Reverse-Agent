@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from shared_llm_core.rule_engine import RuleContext
 
+from ai_reverse_agent.symbolic import Constraint, SymbolicError, solve_branch
+
 from .base import ObfuscationRule, fact_instructions, instruction_parts
 
 
@@ -21,6 +23,30 @@ class OpaquePredicateRule(ObfuscationRule):
             matches.append(f"declared_predicates={explicit}")
         elif isinstance(explicit, (list, tuple)) and explicit:
             matches.extend(str(item) for item in explicit)
+
+        constraints = ctx.facts.get("symbolic_constraints")
+        if isinstance(constraints, Constraint):
+            constraints = (constraints,)
+        if isinstance(constraints, (tuple, list)) and constraints and all(
+            isinstance(item, Constraint) for item in constraints
+        ):
+            try:
+                true_path = solve_branch(
+                    tuple(constraints),
+                    backend="mini",
+                    max_candidates=65_536,
+                )
+                false_path = solve_branch(
+                    tuple(constraints[:-1]) + (constraints[-1].negate(),),
+                    backend="mini",
+                    max_candidates=65_536,
+                )
+                if true_path.satisfiable != false_path.satisfiable:
+                    matches.append(
+                        "bounded symbolic solve proved one branch unreachable"
+                    )
+            except SymbolicError:
+                pass
 
         normalized = [instruction_parts(item) for item in fact_instructions(ctx)]
         for index in range(max(0, len(normalized) - 2)):
