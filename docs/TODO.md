@@ -1,6 +1,6 @@
 # 005 AI-Reverse-Agent · v0.1 TODO
 
-> **项目状态**: S4 complete ✅ (157/157 tests passing)
+> **项目状态**: Phase-2 / ADR-002 complete ✅ (256/256 tests passing)
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) (已冻结)
 > **派活模板**: [CODEX_INSTRUCTIONS.md](../../CODEX_INSTRUCTIONS.md)
 
@@ -30,6 +30,19 @@
 |----|------|------|-------|-------|------|
 | REV-CLI-001 | ReverseAdapter CLI 契约 | done | 2026-07-24 | 2026-07-24 | scan JSON envelope + adapter subprocess E2E |
 | REV-LIVE-001 | 多架构样本 + gateway 联调 | done | 2026-07-24 | 2026-07-24 | x64 PE + ARM/MIPS ELF；gateway :18080 E2E |
+
+## Phase-2 · ADR-002
+
+| ID | 任务 | 状态 | 启动日 | 完成日 | 备注 |
+|----|------|------|-------|-------|------|
+| BACKEND-001 | 成熟 PE/ELF/CFG 后端 | done | 2026-07-29 | 2026-07-29 | pefile + pyelftools + NetworkX；保留 minimal fallback |
+| HASH-002 | 双 import hash 与数据库 provenance | done | 2026-07-29 | 2026-07-29 | 标准 pe_imphash + import_set_hash；fixture 不产 HIGH |
+| FEATURE-001 | 四级 FeatureIndex + RuleEngine | done | 2026-07-29 | 2026-07-29 | 单次解析、特征共享、默认 envelope 兼容 |
+| DEOBF-002 | 多信号静态反混淆 | done | 2026-07-29 | 2026-07-29 | markerless XOR、RC4、opaque、NetworkX CFF |
+| OPTIONAL-ADAPTERS | 重型后端能力边界 | done | 2026-07-29 | 2026-07-29 | capa/FLOSS capability；angr/Ghidra 延期到 v1.0+ |
+
+> Hook C（Ghidra headless）与 Hook D（YARA 生成）仍按技术方案延期，
+> 未经新 issue 批准不实施。
 
 ---
 
