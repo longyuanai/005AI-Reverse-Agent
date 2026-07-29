@@ -96,16 +96,19 @@ def _align(value: int, alignment: int) -> int:
 
 def build_elf_iat_fixture() -> bytes:
     """Return a minimal ELF64 image with two undefined dynamic symbols."""
-    section_names = b"\0.shstrtab\0.dynstr\0.dynsym\0"
+    section_names = b"\0.shstrtab\0.dynstr\0.dynsym\0.rela.plt\0"
     dynamic_strings = b"\0puts\0printf\0"
     dynamic_symbols = b"\0" * 24
     dynamic_symbols += struct.pack("<IBBHQQ", 1, 0x12, 0, 0, 0, 0)
     dynamic_symbols += struct.pack("<IBBHQQ", 6, 0x12, 0, 0, 0, 0)
+    relocations = struct.pack("<QQq", 0x601018, (1 << 32) | 7, 0)
+    relocations += struct.pack("<QQq", 0x601020, (2 << 32) | 7, 0)
 
     names_offset = 64
     strings_offset = _align(names_offset + len(section_names), 8)
     symbols_offset = _align(strings_offset + len(dynamic_strings), 8)
-    sections_offset = _align(symbols_offset + len(dynamic_symbols), 8)
+    relocations_offset = _align(symbols_offset + len(dynamic_symbols), 8)
+    sections_offset = _align(relocations_offset + len(relocations), 8)
     ident = b"\x7fELF" + bytes([2, 1, 1, 0, 0]) + bytes(7)
     header = struct.pack(
         "<16sHHIQQQIHHHHHH",
@@ -121,7 +124,7 @@ def build_elf_iat_fixture() -> bytes:
         0,
         0,
         64,
-        4,
+        5,
         1,
     )
     image = bytearray(header)
@@ -131,6 +134,8 @@ def build_elf_iat_fixture() -> bytes:
     image.extend(dynamic_strings)
     image.extend(b"\0" * (symbols_offset - len(image)))
     image.extend(dynamic_symbols)
+    image.extend(b"\0" * (relocations_offset - len(image)))
+    image.extend(relocations)
     image.extend(b"\0" * (sections_offset - len(image)))
 
     section_header = "<IIQQQQIIQQ"
@@ -180,6 +185,21 @@ def build_elf_iat_fixture() -> bytes:
             24,
         )
     )
+    image.extend(
+        struct.pack(
+            section_header,
+            section_names.index(b".rela.plt"),
+            4,
+            2,
+            0,
+            relocations_offset,
+            len(relocations),
+            3,
+            0,
+            8,
+            24,
+        )
+    )
     return bytes(image)
 
 
@@ -193,15 +213,13 @@ def build_iat_fixtures() -> None:
 
 
 def build_imphash_database() -> None:
-    known_imports = sorted(
-        [
-            "kernel32.dll.createfilew",
-            "user32.dll.messageboxw",
-            "msvcrt.dll.printf",
-            "ws2_32.dll.connect",
-            "advapi32.dll.regopenkeyexw",
-        ]
-    )
+    known_imports = [
+        "kernel32.createfilew",
+        "user32.messageboxw",
+        "msvcrt.printf",
+        "ws2_32.connect",
+        "advapi32.regopenkeyexw",
+    ]
     known_hash = hashlib.md5(
         ",".join(known_imports).encode("utf-8"),
         usedforsecurity=False,
@@ -231,7 +249,13 @@ def build_imphash_database() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(
-            {"schema_version": 1, "algorithm": "sorted-imports-md5", "samples": samples},
+            {
+                "schema_version": 2,
+                "version": "phase2-fixture-2026.07",
+                "algorithm": "pe-imphash-v1",
+                "provenance": "fixture",
+                "samples": samples,
+            },
             indent=2,
         )
         + "\n",

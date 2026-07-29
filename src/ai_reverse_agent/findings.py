@@ -9,8 +9,8 @@ from shared_llm_core.finding import Finding, FindingSeverity, FindingSource
 from ai_reverse_agent.iat import (
     ImportedSymbol,
     MalwareImphashDB,
-    compute_imphash,
 )
+from ai_reverse_agent.hashing import compute_pe_imphash
 
 
 def imphash_finding(
@@ -19,12 +19,12 @@ def imphash_finding(
     host: str | None = None,
     database: MalwareImphashDB | None = None,
 ) -> Finding | None:
-    """Return a HIGH Finding when sorted-import MD5 matches the local DB."""
+    """Return HIGH only for an exact, curated standard PE imphash match."""
     imported = tuple(imports)
-    digest = compute_imphash(imported)
+    digest = compute_pe_imphash(imported)
     db = database or MalwareImphashDB.from_file()
-    match = db.lookup(digest)
-    if match is None:
+    match = db.lookup(digest, algorithm="pe-imphash-v1")
+    if match is None or not match.trusted:
         return None
     return Finding(
         id="",
@@ -33,20 +33,22 @@ def imphash_finding(
         confidence=0.98,
         title=f"imphash matched known malware {match.family}",
         description=(
-            "The binary's normalized import set matches a checked-in local "
-            "malware imphash fixture."
+            "The binary's standard PE imphash exactly matches a curated "
+            "local malware record."
         ),
         host=host,
         evidence=(
-            f"imphash={digest}",
+            f"pe_imphash={digest}",
             f"import_count={len(imported)}",
             f"sample_id={match.sample_id}",
         ),
         tags=frozenset({"imphash", "known-malware", "static-analysis"}),
         metadata={
-            "imphash": digest,
+            "pe_imphash": digest,
+            "algorithm": match.algorithm,
             "family": match.family,
             "sample_id": match.sample_id,
-            "database": "local-fixture",
+            "database_version": match.database_version,
+            "provenance": match.provenance,
         },
     )

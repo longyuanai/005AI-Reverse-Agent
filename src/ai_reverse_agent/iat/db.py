@@ -14,33 +14,75 @@ DEFAULT_DATABASE = Path(__file__).resolve().parents[3] / "data" / "malware_impha
 
 @dataclass(frozen=True)
 class MalwareImphashMatch:
-    imphash: str
+    digest: str
+    algorithm: str
     family: str
     sample_id: str
+    database_version: str
+    provenance: str
     metadata: dict[str, Any]
+
+    @property
+    def imphash(self) -> str:
+        """Backward-compatible digest alias."""
+        return self.digest
+
+    @property
+    def trusted(self) -> bool:
+        """Only curated, standard PE hashes may drive a HIGH Finding."""
+        return (
+            self.algorithm == "pe-imphash-v1"
+            and self.provenance in {"curated", "vendor-curated", "analyst-verified"}
+        )
 
 
 class MalwareImphashDB:
     """Immutable lookup over the checked-in fixture JSON."""
 
-    def __init__(self, samples: list[dict[str, Any]]) -> None:
-        records: dict[str, MalwareImphashMatch] = {}
+    def __init__(
+        self,
+        samples: list[dict[str, Any]],
+        *,
+        algorithm: str = "pe-imphash-v1",
+        version: str = "adhoc",
+        provenance: str = "unknown",
+    ) -> None:
+        records: dict[tuple[str, str], MalwareImphashMatch] = {}
         for sample in samples:
-            digest = str(sample.get("imphash", "")).strip().lower()
+            sample_algorithm = str(sample.get("algorithm", algorithm)).strip().lower()
+            digest = str(
+                sample.get("digest", sample.get("imphash", ""))
+            ).strip().lower()
             if not _MD5_RE.fullmatch(digest):
                 raise ValueError(f"invalid imphash in local database: {digest!r}")
+            sample_provenance = str(
+                sample.get("provenance", sample.get("source", provenance))
+            ).strip().lower()
             metadata = {
                 key: value
                 for key, value in sample.items()
-                if key not in {"imphash", "family", "sample_id"}
+                if key
+                not in {
+                    "algorithm",
+                    "digest",
+                    "imphash",
+                    "family",
+                    "sample_id",
+                    "provenance",
+                }
             }
-            records[digest] = MalwareImphashMatch(
-                imphash=digest,
+            records[(sample_algorithm, digest)] = MalwareImphashMatch(
+                digest=digest,
+                algorithm=sample_algorithm,
                 family=str(sample.get("family", "unknown")),
                 sample_id=str(sample.get("sample_id", digest)),
+                database_version=version,
+                provenance=sample_provenance,
                 metadata=metadata,
             )
         self._records = records
+        self.version = version
+        self.provenance = provenance
 
     @classmethod
     def from_file(cls, path: str | Path = DEFAULT_DATABASE) -> "MalwareImphashDB":
@@ -48,10 +90,20 @@ class MalwareImphashDB:
         samples = payload.get("samples", ())
         if not isinstance(samples, list):
             raise ValueError("malware imphash database must contain a samples list")
-        return cls(samples)
+        return cls(
+            samples,
+            algorithm=str(payload.get("algorithm", "pe-imphash-v1")),
+            version=str(payload.get("version", payload.get("schema_version", "unknown"))),
+            provenance=str(payload.get("provenance", "unknown")),
+        )
 
-    def lookup(self, imphash: str) -> MalwareImphashMatch | None:
-        return self._records.get(imphash.strip().lower())
+    def lookup(
+        self,
+        imphash: str,
+        *,
+        algorithm: str = "pe-imphash-v1",
+    ) -> MalwareImphashMatch | None:
+        return self._records.get((algorithm.strip().lower(), imphash.strip().lower()))
 
     def __len__(self) -> int:
         return len(self._records)
