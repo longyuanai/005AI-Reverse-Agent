@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from shared_llm_core.rule_engine import RuleContext
 
 from .base import ObfuscationRule, fact_bytes
+from .base import fact_instructions, instruction_parts
+from shared_llm_core.finding import FindingSeverity
 
 RC4_MARKER = b"RC4STR\x01"
 
@@ -71,8 +73,24 @@ class Rc4StringRule(ObfuscationRule):
 
     def evaluate(self, ctx: RuleContext):
         decoded = find_rc4_strings(fact_bytes(ctx))
-        if not decoded:
+        structure = detect_rc4_structure(fact_instructions(ctx))
+        if not decoded and not structure:
             return []
+        if not decoded:
+            return [
+                self.make_finding(
+                    ctx,
+                    title="RC4-like key scheduling structure detected",
+                    description=(
+                        "Static instruction features resemble RC4 KSA/PRGA, "
+                        "but no key or plaintext was proven."
+                    ),
+                    evidence=structure,
+                    severity=FindingSeverity.LOW,
+                    confidence=0.62,
+                    metadata={"algorithm": "rc4", "decoded": False},
+                )
+            ]
         evidence = [
             f"0x{item.offset:x}: key={item.key.hex()}, decoded={item.value!r}"
             for item in decoded[:8]
@@ -84,8 +102,36 @@ class Rc4StringRule(ObfuscationRule):
                 description="Static RC4 decoding recovered printable embedded strings.",
                 evidence=evidence,
                 metadata={
+                    "algorithm": "rc4",
+                    "decoded": True,
                     "decoded_strings": [item.value for item in decoded],
                     "match_count": len(decoded),
                 },
             )
         ]
+
+
+def detect_rc4_structure(instructions: tuple[object, ...]) -> tuple[str, ...]:
+    """Recognize architecture-neutral RC4 loop/swap/XOR instruction signals."""
+    normalized = [instruction_parts(item) for item in instructions[:4096]]
+    has_256_bound = any(
+        mnemonic in {"cmp", "slti", "sub"}
+        and any(token in operands for token in ("0x100", "256"))
+        for _, mnemonic, operands in normalized
+    )
+    has_swap = any(
+        mnemonic in {"xchg", "swap", "strb", "sb"}
+        for _, mnemonic, _ in normalized
+    )
+    has_xor = any(
+        mnemonic in {"xor", "eor", "xori"}
+        for _, mnemonic, _ in normalized
+    )
+    signals = []
+    if has_256_bound:
+        signals.append("256-byte state loop")
+    if has_swap:
+        signals.append("state-byte swap")
+    if has_xor:
+        signals.append("keystream xor")
+    return tuple(signals) if len(signals) == 3 else ()

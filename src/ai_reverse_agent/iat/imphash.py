@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -15,6 +14,8 @@ class ImportedSymbol:
     name: str
     hint: int | None = None
     address: int | None = None
+    ordinal: int | None = None
+    delayed: bool = False
 
     @property
     def canonical_name(self) -> str:
@@ -42,11 +43,7 @@ def normalize_import(value: ImportLike) -> str:
 
 
 def compute_imphash(imports: Iterable[ImportLike]) -> str:
-    """Return MD5(sorted normalized imports joined by commas)."""
-    canonical = sorted(normalize_import(item) for item in imports)
-    payload = ",".join(canonical).encode("utf-8")
-    try:
-        digest = hashlib.md5(payload, usedforsecurity=False)
-    except TypeError:  # pragma: no cover - older Python/OpenSSL
-        digest = hashlib.md5(payload)
-    return digest.hexdigest()
+    """Deprecated alias for :func:`compute_import_set_hash`."""
+    from ai_reverse_agent.hashing.import_set_hash import compute_import_set_hash
+
+    return compute_import_set_hash(imports)

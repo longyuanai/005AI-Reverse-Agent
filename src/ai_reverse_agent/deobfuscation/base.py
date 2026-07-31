@@ -26,16 +26,18 @@ class ObfuscationRule(Rule):
         title: str,
         description: str,
         evidence: Iterable[str] = (),
+        severity: FindingSeverity | None = None,
         confidence: float | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Finding:
         details = {"rule_id": self.id, "tactic": self.tactic}
+        details["backend"] = str(ctx.facts.get("backend", "native"))
         if metadata:
             details.update(metadata)
         return Finding(
             id="",
             source=FindingSource.REVERSE,
-            severity=self.severity,
+            severity=self.severity if severity is None else severity,
             confidence=self.confidence if confidence is None else confidence,
             title=title,
             description=description,
@@ -48,7 +50,11 @@ class ObfuscationRule(Rule):
 
 def fact_bytes(ctx: RuleContext) -> bytes:
     """Return the immutable byte fact, or an empty value when absent."""
-    value = ctx.facts.get("data", b"")
+    index = ctx.facts.get("feature_index")
+    if index is not None:
+        value = getattr(index, "file", {}).get("data", b"")
+    else:
+        value = ctx.facts.get("data", b"")
     if isinstance(value, bytes):
         return value
     if isinstance(value, bytearray):
@@ -60,7 +66,12 @@ def fact_bytes(ctx: RuleContext) -> bytes:
 
 def fact_instructions(ctx: RuleContext) -> tuple[Any, ...]:
     """Return normalized instruction-like objects without binding to Capstone."""
-    value = ctx.facts.get("instructions", ())
+    index = ctx.facts.get("feature_index")
+    value = (
+        getattr(index, "instructions", ())
+        if index is not None
+        else ctx.facts.get("instructions", ())
+    )
     if isinstance(value, (list, tuple)):
         return tuple(value)
     return ()

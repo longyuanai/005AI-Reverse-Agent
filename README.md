@@ -50,7 +50,7 @@ disassembly is requested.
 ## Install
 
 ```bash
-cd 005AI逆向Agent
+cd 005AI-Reverse-Agent
 poetry install
 ```
 
@@ -92,6 +92,52 @@ curl -X POST http://localhost:8080/v0.5/005/scan \
   -H "Content-Type: application/json" \
   -d '{"binary_path":"E:/path/to/binary.exe","arch":"x64"}'
 ```
+
+## Phase-2 static analysis
+
+PE and ELF files are parsed once and converted into a shared four-scope
+`FeatureIndex` (file, function, basic block, instruction). The default
+backends are:
+
+- `pefile` for PE imports, delay imports, ordinals, and standard imphash;
+- `pyelftools` for ELF dynamic symbols, relocations, and GOT/PLT imports;
+- `networkx` for CFG SCC, loop, dominance, and dispatcher features;
+- the existing bounded parsers as deterministic fixture/fallback backends.
+
+Import enrichment is opt-in, so the default IntegrationGateway envelope remains
+unchanged:
+
+```powershell
+$payload = @{
+  binary_path = "samples/pe/mini_x64_pe.exe"
+  arch = "x64"
+  enrich = @("pe_imphash", "import_set_hash", "iat_list")
+} | ConvertTo-Json -Compress
+
+$payload | python -m ai_reverse_agent.cli scan --json
+```
+
+The two hashes have different semantics:
+
+- `pe_imphash`: industry-compatible, import-order-sensitive PE hash;
+- `import_set_hash`: sorted, order-independent hash for clustering and diffing.
+
+They must not be compared or labelled as the same algorithm. The checked-in
+1,000-record database is fixture data with explicit provenance and cannot
+produce a production `HIGH` Finding. Only a curated, exact `pe_imphash` match
+may do so.
+
+The reverse rules consume the same `FeatureIndex` and cover bounded
+markerless XOR recovery, RC4 structural signals, opaque predicates, and
+multi-signal control-flow flattening. capa and FLOSS are capability-gated
+optional integrations; angr and Ghidra execution remain deferred.
+
+Safety boundaries:
+
+- files larger than 100 MiB are rejected before full parsing;
+- samples are never executed and no sandbox is launched;
+- the malware hash database is local-only and never updated over the network;
+- parser walks and string recovery use hard limits.
 
 ## Disassemble a raw binary
 
@@ -182,7 +228,9 @@ python -m ai_reverse_agent.cli crypto-id firmware.bin
 ## Test
 
 ```bash
-poetry run pytest -v
+C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe `
+  -m pytest tests --basetemp=C:/pytest-tmp/005 -q --tb=short -o addopts=
 ```
 
-All tests use a stubbed router; no live LLM is required.
+The current Phase-2 baseline is 256 passing tests. All tests use a stubbed
+router; no live LLM is required.

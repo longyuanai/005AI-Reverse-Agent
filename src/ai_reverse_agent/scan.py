@@ -6,16 +6,17 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+from shared_llm_core.rule_engine import RuleContext
+
 from ai_reverse_agent.architecture import resolve_architecture
+from ai_reverse_agent.backends import BinaryImage, BinaryLoader
 from ai_reverse_agent.crypto_id import identify_crypto
+from ai_reverse_agent.deobfuscation import build_reverse_rule_engine
 from ai_reverse_agent.disasm import disassemble
+from ai_reverse_agent.features import extract_features
 from ai_reverse_agent.findings import imphash_finding
-from ai_reverse_agent.iat import (
-    compute_imphash,
-    parse_elf_imports,
-    parse_pe_imports,
-)
-from ai_reverse_agent.magic import MagicError, read_static_file
+from ai_reverse_agent.hashing import compute_import_set_hash, compute_pe_imphash
+from ai_reverse_agent.magic import MagicError
 
 
 def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
@@ -47,7 +48,8 @@ def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
         return _error_envelope("unsupported_architecture", str(exc))
 
     try:
-        data = read_static_file(path)
+        image = BinaryLoader().load(path)
+        data = image.data
         code, base_address, container = _extract_code(data)
         instructions = tuple(
             disassemble(
@@ -64,7 +66,18 @@ def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
     except (OSError, RuntimeError, ValueError) as exc:
         return _error_envelope("analysis_failed", str(exc))
 
+    feature_index = extract_features(
+        image,
+        instructions,
+        architecture=spec.architecture.value,
+    )
     findings = _security_findings(data, path)
+    for finding in build_reverse_rule_engine().evaluate(
+        RuleContext(str(path), feature_index.rule_facts())
+    ):
+        item = finding.to_dict()
+        item["narrative"] = finding.description
+        findings.append(item)
     summary_metadata = {
         "architecture": spec.architecture.value,
         "bits": spec.bits,
@@ -72,16 +85,21 @@ def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
         "container": container,
         "instruction_count": len(instructions),
         "binary_size": len(data),
+        "backend": image.backend,
     }
     requested_enrichment = payload.get("enrich", ())
     if isinstance(requested_enrichment, (list, tuple, set)):
         requested = {str(value).lower() for value in requested_enrichment}
     else:
         requested = set()
-    if requested & {"imphash", "iat_list"}:
+    if requested & {
+        "imphash",
+        "pe_imphash",
+        "import_set_hash",
+        "iat_list",
+    }:
         _apply_import_enrichment(
-            data=data,
-            container=container,
+            image=image,
             path=path,
             requested=requested,
             findings=findings,
@@ -110,25 +128,19 @@ def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _apply_import_enrichment(
     *,
-    data: bytes,
-    container: str,
+    image: BinaryImage,
     path: Path,
     requested: set[str],
     findings: list[dict[str, Any]],
     summary_metadata: dict[str, Any],
 ) -> None:
-    try:
-        if container == "pe":
-            imported = parse_pe_imports(data)
-        elif container == "elf":
-            imported = parse_elf_imports(data)
-        else:
-            raise MagicError("unsupported container for IAT extraction")
-    except MagicError as exc:
-        summary_metadata["iat_error"] = str(exc)
+    imported = image.imports
+    if image.container not in {"pe", "elf"}:
+        summary_metadata["iat_error"] = "unsupported container for IAT extraction"
         return
 
     summary_metadata["import_count"] = len(imported)
+    summary_metadata["import_backend"] = image.backend
     if "iat_list" in requested:
         summary_metadata["iat_list"] = [
             {
@@ -136,19 +148,23 @@ def _apply_import_enrichment(
                 "name": item.name,
                 "hint": item.hint,
                 "address": item.address,
+                "ordinal": item.ordinal,
+                "delayed": item.delayed,
             }
             for item in imported
         ]
-    if "imphash" not in requested:
-        return
-    digest = compute_imphash(imported)
-    summary_metadata["imphash"] = digest
-    finding = imphash_finding(imported, host=str(path))
-    if finding is None:
-        return
-    item = finding.to_dict()
-    item["narrative"] = finding.description
-    findings.append(item)
+    if requested & {"imphash", "import_set_hash"}:
+        summary_metadata["import_set_hash"] = compute_import_set_hash(imported)
+        summary_metadata["import_set_hash_algorithm"] = "import-set-md5-v1"
+    if image.container == "pe" and requested & {"imphash", "pe_imphash"}:
+        digest = compute_pe_imphash(imported)
+        summary_metadata["pe_imphash"] = digest
+        summary_metadata["pe_imphash_algorithm"] = "pe-imphash-v1"
+        finding = imphash_finding(imported, host=str(path))
+        if finding is not None:
+            item = finding.to_dict()
+            item["narrative"] = finding.description
+            findings.append(item)
 
 
 def _security_findings(data: bytes, path: Path) -> list[dict[str, Any]]:

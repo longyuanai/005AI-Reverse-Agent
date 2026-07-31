@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PE_FIXTURE = ROOT / "samples" / "pe" / "mini_x64_pe.exe"
 ELF_FIXTURE = ROOT / "samples" / "elf" / "mini_x64_elf.bin"
 KNOWN_HASH = "80b4fb3d5cced084a47675fec05e4d48"
+KNOWN_PE_IMPHASH = "c1f0cda7bd39190d4154ba8e2d3b3480"
 
 
 def test_pe_iat_extracts_five_named_imports():
@@ -80,13 +81,14 @@ def test_imphash_empty_input_is_md5_of_empty_string():
 
 def test_local_database_contains_at_least_one_thousand_samples():
     payload = json.loads(DEFAULT_DATABASE.read_text(encoding="utf-8"))
-    assert payload["algorithm"] == "sorted-imports-md5"
+    assert payload["algorithm"] == "pe-imphash-v1"
+    assert payload["provenance"] == "fixture"
     assert len(payload["samples"]) >= 1000
     assert len(MalwareImphashDB.from_file()) >= 1000
 
 
 def test_local_database_matches_known_pe_fixture():
-    match = MalwareImphashDB.from_file().lookup(KNOWN_HASH)
+    match = MalwareImphashDB.from_file().lookup(KNOWN_PE_IMPHASH)
     assert match is not None
     assert match.family == "phase2-known-fixture"
     assert match.sample_id == "mini-x64-pe"
