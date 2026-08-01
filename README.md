@@ -160,6 +160,9 @@ not execute the sample, invoke an LLM, download signatures, or require
 `yara-python`. Generated rules should still be reviewed against an authorized
 clean corpus before operational deployment.
 
+Development installs include `yara-python`; the test suite compiles and matches
+generated PE, raw, and exact SHA-256 fallback rules with the real YARA engine.
+
 ## Disassemble a raw binary
 
 Raw `.bin` files have no architecture metadata, so `--arch` is required.
@@ -253,5 +256,5 @@ C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe `
   -m pytest tests --basetemp=C:/pytest-tmp/005 -q --tb=short -o addopts=
 ```
 
-The current v1.0 baseline is 275 passing tests. All tests use a stubbed
+The current v1.0 baseline is 278 passing tests. All tests use a stubbed
 router; no live LLM is required.

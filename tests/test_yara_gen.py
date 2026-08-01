@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yara
 from click.testing import CliRunner
 
 from ai_reverse_agent.backends import BinaryImage, BinaryLoader
@@ -196,3 +197,31 @@ def test_rule_has_balanced_top_level_braces():
     assert generated.text.count("}") == 1
     assert "    meta:\n" in generated.text
     assert "    condition:\n" in generated.text
+
+
+def test_yara_compiler_accepts_and_matches_pe_rule():
+    generated = generate_yara_for_file(PE_FIXTURE, architecture="x64")
+    rules = yara.compile(source=generated.text)
+    assert [match.rule for match in rules.match(data=PE_FIXTURE.read_bytes())] == [
+        generated.name
+    ]
+
+
+def test_yara_compiler_accepts_and_matches_raw_rule(tmp_path: Path):
+    data = b"operator-command.example\0unique-config-token-42\0"
+    generated = generate_yara_rule(
+        _raw_features(data, tmp_path),
+        source_name="raw.bin",
+    )
+    rules = yara.compile(source=generated.text)
+    assert [match.rule for match in rules.match(data=data)] == [generated.name]
+
+
+def test_yara_compiler_accepts_and_matches_sha256_fallback(tmp_path: Path):
+    data = b"\x00\x01\x02\x03"
+    generated = generate_yara_rule(
+        _raw_features(data, tmp_path),
+        source_name="tiny.bin",
+    )
+    rules = yara.compile(source=generated.text)
+    assert [match.rule for match in rules.match(data=data)] == [generated.name]
