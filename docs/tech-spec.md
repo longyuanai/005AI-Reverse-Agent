@@ -1,7 +1,10 @@
-# AI 逆向辅助工具 — Codex 技术方案
+# AI 逆向辅助工具 — 产品技术规范
 
-> 版本：v0.1 (draft) ｜ 适用范围：二进制逆向、固件分析、CTF / 红队 / 取证 / 商业代码审计
-> 目标：把"二进制专家"的能力封装成可协作的 AI Copilot，让 3 年经验的工程师能干 10 年经验的活。
+> 文档版本：v1.1-commercial-baseline ｜ 状态：提议 / 待产品负责人批准
+> 适用范围：经授权的二进制逆向、固件分析、CTF、取证和商业代码审计
+> 目标：把可验证的静态分析能力封装成 AI Copilot，提高分析师效率，但不替代人工安全结论。
+> 商用验收入口：[COMMERCIAL-READINESS.md](COMMERCIAL-READINESS.md)
+> 生产架构决策：[ADR-003-commercial-product-architecture.md](ADR-003-commercial-product-architecture.md)
 
 ---
 
@@ -49,7 +52,9 @@
 
 ---
 
-## 4. 总体架构
+## 4. 功能架构（历史概念视图）
+
+本节描述产品能力分层，不是当前生产部署拓扑。商用生产架构以 §14 和 ADR-003 为准。
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -160,9 +165,10 @@ LLM 四种角色，**所有产出都标注置信度 + 证据**：
 
 ### 6.2 LLM 策略
 
-- **主力**：Anthropic Claude（Opus 4.8 / Sonnet 5），长上下文 + Tool Use 适合反编译代码块。
-- **本地化**：vLLM + Qwen2.5-Coder-32B / DeepSeek-Coder-V3。
-- **离线模式**：默认离线是产品价值主张之一。
+- **统一入口**：只通过冻结的 `shared-llm-core` router 调用，产品代码不绑定具体厂商。
+- **云模型**：由客户策略显式启用，记录 provider/model/version，不把样本全文默认外发。
+- **本地化**：通过兼容 provider 接入客户批准的本地推理服务，模型选型另立 ADR。
+- **离线模式**：默认可关闭所有云调用；纯静态分析能力不依赖 LLM 可用性。
 
 ### 6.3 微调（可选）
 
@@ -207,10 +213,14 @@ LLM 四种角色，**所有产出都标注置信度 + 证据**：
 
 ## 10. 路线图
 
-- **v0.1 PoC（2 个月）**：Ghidra 插件 + 1 架构（x64） + Explainer + 标注本地化。
-- **v0.3 Beta（4 个月）**：多架构 + Commenter + 团队知识库。
-- **v0.6 GA（8 个月）**：Renamer + 二进制 Diff + 报告。
-- **v1.0（1 年）**：反混淆 + 离线 LLM 完整支持 + 商业版本。
+- **已完成研发基线**：六架构、PE/ELF/raw、Capstone、伪 C、CFG、轻量符号执行、patch diff、加密常量、反混淆、双 import hash、YARA、CLI/Gateway 契约。
+- **v1.1 Commercial Alpha**：异步任务、资源限制、真实语料评测、依赖锁定、Windows/Linux CI。
+- **v1.2 Private Pilot**：可运行 Web UI、身份认证、RBAC、持久化、审计、离线安装包、备份恢复。
+- **v1.3 Commercial GA**：可观测性、升级回滚、签名发布物、运维手册、支持策略和商用验收报告。
+- **v2.0 Advanced Analysis**：经单独审批的 Ghidra Headless、团队标注协作和更深层跨函数分析。
+
+版本名称表示验收门禁，不表示当前代码已达到对应级别。每一级必须满足 §14 和
+`COMMERCIAL-READINESS.md`，不得仅凭测试数量宣称 GA。
 
 ---
 
@@ -311,23 +321,20 @@ src/ai_reverse_agent/iat/
 ├── __init__.py
 ├── pe_iat.py            # PE IAT 解析
 ├── elf_iat.py           # ELF .got/.plt 解析
-├── imphash.py           # imphash 算法(FBI 标准,MurmurHash3 of sorted imports)
+├── imphash.py           # 兼容入口与 import hash 结果
 └── db.py                # 已知 malware imphash(本地 fixture JSON,≥ 1000 样本)
 ```
 
-**imphash 算法**(FBI 格式):
+**双 hash 契约**:
 
 ```python
-def compute_imphash(imports: list[str]) -> str:
-    """
-    1. 取 imports + hint names,小写
-    2. 按字典序排序
-    3. 用 ',' 连接
-    4. MD5
-    """
-    cleaned = sorted(f"{imp.lower()}.{hint.lower()}" for imp, hint in imports)
-    return hashlib.md5(",".join(cleaned).encode()).hexdigest()
+pe_imphash = pefile_compatible_order_sensitive_md5(pe_imports)
+import_set_hash = md5(",".join(sorted(normalize(all_imports))).encode())
 ```
+
+- `pe_imphash` 与行业 `pefile.PE.get_imphash()` 兼容，保留 PE import table 顺序。
+- `import_set_hash` 是本项目跨 PE/ELF 的稳定集合指纹，排序后计算 MD5。
+- 两者语义不同，字段、数据库和 YARA 条件不得互换。
 
 **CLI payload 增量**:
 
@@ -353,13 +360,17 @@ def compute_imphash(imports: list[str]) -> str:
 1. `feat(iat): add PE/ELF IAT parser + imphash algorithm + local malware DB fixture`
 2. `feat(findings): emit Finding when imphash matches known malware`
 
-### 13.3 Hook C · Ghidra headless 集成(Phase-3+ 候选,不在本仓本次实施)
+### 13.3 Hook C · Ghidra headless 集成(可选)
 
-**方向**:用 Ghidra headless mode(analyzeHeadless)导出 `.xml`,本仓解析 + 标注。复杂度高,留 v1.0+。
+**方向**:用 Ghidra headless mode(analyzeHeadless)导出 `.xml`,本仓解析 + 标注。
+当前只有 capability boundary；实施范围由 GitHub Issue #3 `GHIDRA-001` 管理，外部
+Ghidra/Java 依赖未经明确批准不得安装或启动。
 
 ### 13.4 Hook D · YARA 规则生成(Phase-3+ 候选)
 
-**方向**:基于 reverse 发现(混淆模式 + imphash + 关键函数 hash),自动生成 YARA rule。
+**状态**:已完成 YARA-001。基于 FeatureIndex 生成确定性规则，PE 使用标准
+`pe.imphash()`，ELF/raw 使用字符串与文件大小条件，特征不足时使用精确 SHA-256；
+`yara-python` 开发依赖执行真实编译和匹配测试。
 
 ### 13.5 不要做的事
 
@@ -382,12 +393,116 @@ Codex 完工后跑:
   -q --tb=short
 
 & 'C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe' `
-  -m ai_reverse_agent scan --input '{"binary_path":"samples/mini_binaries/mini_x64_pe.exe"}' --json
+  -m ai_reverse_agent.cli scan `
+  --input '{"binary_path":"samples/mini_binaries/mini_x64_pe.exe","arch":"x64"}' `
+  --json
 ```
 
-预期:≥ 185 passed(原 167 + Phase-2 新增 18);CLI envelope 仍是 `{"findings": [...], "summary": {...}}`。
+当前基线:278 passed;CLI envelope 仍遵守冻结契约。测试数量只表示研发回归，商用发布
+还必须满足 §14 和 `COMMERCIAL-READINESS.md`。
 
 ---
 
-**最近修订**: 2026-07-25 · Claude 把 PHASE-2.md 合并进 §13
-**下次回看触发**: v0.6 启动 / Hook A 启动 / imphash 数据库接入
+**Phase-2 最近修订**: 2026-08-01 · Codex 同步双 hash、YARA 和 Ghidra 状态
+**下次回看触发**: Commercial Alpha 开工 / GHIDRA-001 获批
+
+---
+
+## 14. 商用技术基线
+
+### 14.1 当前能力边界
+
+截至 2026-08-01，仓库是可工作的静态分析后端，不是完整商业产品：
+
+- 支持 PE、ELF 和 raw binary；Mach-O、WebAssembly、固件拆包不在当前支持范围。
+- 支持 x86、x64、ARM、AArch64、MIPS、RISC-V 的静态反汇编。
+- 自研伪 C 是轻量表示，不承诺达到 Ghidra、IDA 或 Binary Ninja 的反编译精度。
+- 不执行被分析样本，不提供动态调试、沙箱、脱壳执行或 0day 自动挖掘。
+- UI 目前只有技术选型与线框，占位仓不能作为可交付界面。
+- Ghidra 后端只有 capability boundary；Issue #3 获批前不得启动外部进程。
+
+### 14.2 生产目标架构
+
+```text
+Browser / CLI / API client
+          |
+          v
+IntegrationGateway -- Auth/RBAC -- Audit log
+          |
+          v
+Job API -> Durable queue -> Static-analysis worker pool
+                              |-- parser/disassembler/decompiler
+                              |-- rules/imphash/YARA
+                              `-- optional LLM/Ghidra adapters
+          |
+          +--> PostgreSQL (metadata, findings, annotations, jobs)
+          +--> Object storage (encrypted binaries and reports)
+          `--> Metrics/logs/traces
+```
+
+原则：API 进程不直接执行长任务；样本只进入受限静态 worker；外部适配器默认关闭；
+LLM 外发必须经过显式策略；所有结果携带证据、置信度和工具版本。
+
+### 14.3 冻结接口与版本策略
+
+- `shared-llm-core` v0.1 §1–§6 和 v0.5 Finding/envelope 保持冻结。
+- 商用字段通过新版本 endpoint 或向后兼容的可选字段扩展，禁止原地改变语义。
+- 数据库 schema 使用单向迁移并提供升级前备份和已验证的回滚方案。
+- CLI/API 使用语义化版本；弃用至少跨一个次版本并记录迁移说明。
+- 每个分析结果记录 engine version、rule version、配置摘要和输入 SHA-256。
+
+### 14.4 安全基线
+
+- 只接受用户自有、授权、靶场或 CTF 样本；产品内展示授权声明。
+- 文件大小默认上限 100 MiB；上传、解压、解析、字符串和 CFG 遍历均有独立配额。
+- 不使用 shell 拼接命令；外部工具使用参数数组、超时、最小权限和临时目录。
+- worker 禁止默认外网、禁止执行样本、限制 CPU/内存/磁盘/进程数。
+- 文件、结果和备份静态加密；传输使用 TLS；密钥不得进入仓库或日志。
+- 提供 RBAC、租户隔离、审计日志、保留期、删除和导出能力。
+- 发布物生成 SBOM，执行依赖漏洞、许可证、secret、SAST 扫描并签名。
+- HIGH/CRITICAL 结论必须展示证据与人工复核状态，不允许仅由 LLM 产生。
+
+详细威胁、控制和验收证据见 `COMMERCIAL-READINESS.md`。
+
+### 14.5 质量与性能门禁
+
+商用发布至少满足：
+
+| 维度 | Pilot 门禁 | GA 门禁 |
+|------|------------|---------|
+| 自动化测试 | 核心路径 unit/integration/e2e 全绿 | 同左，且 Windows/Linux 发布矩阵全绿 |
+| 核心代码覆盖率 | ≥ 80%，新增代码 ≥ 85% | ≥ 85%，关键安全模块分支覆盖 ≥ 80% |
+| 支持语料成功率 | ≥ 98%，失败必须结构化返回 | ≥ 99.5%，不得使 API/worker 崩溃 |
+| HIGH 误报率 | 授权 clean corpus < 2% | < 1% |
+| 已知检测集召回率 | ≥ 85% | ≥ 90% |
+| 10 MiB 静态扫描 P95 | 基准硬件 ≤ 60 秒 | ≤ 30 秒 |
+| 100 MiB 边界 | 拒绝或在配额内完成，无 OOM | 同左并有压力测试证据 |
+| 可用性 | 单节点月度 ≥ 99.5% | 团队版月度 ≥ 99.9% |
+| 恢复目标 | RPO ≤ 24h，RTO ≤ 4h | RPO ≤ 1h，RTO ≤ 2h |
+
+性能必须记录基准硬件、样本集和版本；没有测量证据时只能标记“目标”，不能标记“达成”。
+
+### 14.6 可观测性与运维
+
+- job、worker、parser、rule、LLM、外部工具均输出结构化日志和关联 ID。
+- 指标至少覆盖队列深度、吞吐、P50/P95、超时、崩溃、各规则命中率和误报反馈。
+- health 分为 liveness/readiness/dependency，不能用一个 `ok` 掩盖降级依赖。
+- 提供备份恢复演练、容量告警、故障手册、升级回滚和数据迁移验证。
+- 日志默认不包含原始二进制、反编译全文、凭据或完整用户输入。
+
+### 14.7 商用 Definition of Done
+
+一个商业化 Epic 只有同时满足以下条件才能标记 done：
+
+1. 需求、非目标、威胁和接口已经评审。
+2. 每个外部依赖经过批准、固定版本并记录许可证。
+3. 单元、集成、端到端、失败路径和 Windows/Linux 测试全部通过。
+4. 性能、安全、兼容性目标有可复现证据。
+5. 文档、迁移、回滚、监控和运维手册同步完成。
+6. 不破坏冻结契约，工作树干净，变更已通过独立 commit 和 PR 审核。
+7. 人工验收明确记录“通过”；禁止由实现者仅凭自测自行宣布 GA。
+
+---
+
+**商用基线修订**: 2026-08-01 · Codex 建立 v1.1 商业化技术门禁
+**下次评审触发**: COM-DOC-001 合并 / Commercial Alpha 开工
