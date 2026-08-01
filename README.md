@@ -139,6 +139,27 @@ Safety boundaries:
 - the malware hash database is local-only and never updated over the network;
 - parser walks and string recovery use hard limits.
 
+## Generate a YARA rule
+
+`generate-yara` turns the existing static `FeatureIndex` into a deterministic
+YARA rule. PE rules use the industry-compatible `pe.imphash()` condition and
+selected high-signal strings. ELF/raw rules use bounded file-size and string
+conditions, with an exact SHA-256 fallback when stable features are scarce.
+
+```powershell
+python -m ai_reverse_agent.cli generate-yara `
+  samples/pe/mini_x64_pe.exe `
+  --arch x64 `
+  --rule-name suspicious-loader `
+  --output suspicious-loader.yar
+```
+
+The generator sanitizes rule identifiers, escapes literals, limits selected
+strings to 64, and rejects files above the existing 100 MiB boundary. It does
+not execute the sample, invoke an LLM, download signatures, or require
+`yara-python`. Generated rules should still be reviewed against an authorized
+clean corpus before operational deployment.
+
 ## Disassemble a raw binary
 
 Raw `.bin` files have no architecture metadata, so `--arch` is required.
@@ -232,5 +253,5 @@ C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe `
   -m pytest tests --basetemp=C:/pytest-tmp/005 -q --tb=short -o addopts=
 ```
 
-The current Phase-2 baseline is 256 passing tests. All tests use a stubbed
+The current v1.0 baseline is 275 passing tests. All tests use a stubbed
 router; no live LLM is required.

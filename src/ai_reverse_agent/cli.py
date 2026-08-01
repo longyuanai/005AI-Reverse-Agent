@@ -45,6 +45,13 @@ from ai_reverse_agent.controlflow import (
     render_png,
     to_dot,
 )
+from ai_reverse_agent.magic import MagicError
+from ai_reverse_agent.yara_gen import (
+    DEFAULT_MAX_STRINGS,
+    MAX_YARA_STRINGS,
+    YaraGenerationError,
+    generate_yara_for_file,
+)
 
 
 console = Console()
@@ -496,6 +503,50 @@ def crypto_id_command(path: str, output_path: str) -> None:
         click.echo(report, nl=False)
     else:
         Path(output_path).write_text(report, encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output_path}")
+
+
+@cli.command("generate-yara")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--arch", "architecture", required=True)
+@click.option("--rule-name", default=None, help="Optional YARA rule identifier.")
+@click.option(
+    "--max-strings",
+    type=click.IntRange(min=1, max=MAX_YARA_STRINGS),
+    default=DEFAULT_MAX_STRINGS,
+    show_default=True,
+)
+@click.option(
+    "--exact-fallback/--no-exact-fallback",
+    default=True,
+    show_default=True,
+    help="Use an exact SHA-256 condition when stable features are insufficient.",
+)
+@click.option("--output", "-o", "output_path", default="-", type=click.Path(dir_okay=False))
+def generate_yara_command(
+    path: str,
+    architecture: str,
+    rule_name: str | None,
+    max_strings: int,
+    exact_fallback: bool,
+    output_path: str,
+) -> None:
+    """Generate a deterministic static YARA rule for a local binary."""
+    try:
+        generated = generate_yara_for_file(
+            path,
+            architecture=architecture,
+            rule_name=rule_name,
+            max_strings=max_strings,
+            exact_fallback=exact_fallback,
+        )
+    except (MagicError, OSError, YaraGenerationError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if output_path == "-":
+        click.echo(generated.text, nl=False)
+    else:
+        Path(output_path).write_text(generated.text, encoding="utf-8")
         console.print(f"[green]Wrote[/green] {output_path}")
 
 
