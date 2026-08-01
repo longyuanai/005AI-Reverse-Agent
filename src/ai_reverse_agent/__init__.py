@@ -91,6 +91,13 @@ from ai_reverse_agent.crypto_id import (
     identify_crypto_file,
 )
 from ai_reverse_agent.adapter import ReverseProductAdapter
+from ai_reverse_agent.yara_gen import (
+    GeneratedYaraRule,
+    YaraGenerationError,
+    YaraString,
+    generate_yara_for_file,
+    generate_yara_rule,
+)
 
 __version__ = "0.1.0"
 
@@ -117,6 +124,7 @@ __all__ = [
     "FunctionBoundary",
     "FunctionDiff",
     "GraphvizUnavailable",
+    "GeneratedYaraRule",
     "InstructionDelta",
     "NormalizedInstruction",
     "PatchDiffResult",
@@ -127,6 +135,8 @@ __all__ = [
     "SymbolicBackendUnavailable",
     "SymbolicError",
     "SymbolicSolution",
+    "YaraGenerationError",
+    "YaraString",
     "SignatureMatch",
     "AES_SBOX",
     "SHA1_INITIAL_STATE",
@@ -158,6 +168,8 @@ __all__ = [
     "format_decompilation",
     "format_crypto_detections",
     "format_patch_diff",
+    "generate_yara_for_file",
+    "generate_yara_rule",
     "identify_crypto",
     "identify_crypto_file",
     "identify_stack_variables",

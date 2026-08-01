@@ -1,6 +1,6 @@
 # 005 AI-Reverse-Agent · v0.1 TODO
 
-> **项目状态**: Phase-2 / ADR-002 complete ✅ (256/256 tests passing)
+> **项目状态**: YARA-001 complete ✅ (278/278 tests passing)
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) (已冻结)
 > **派活模板**: [CODEX_INSTRUCTIONS.md](../../CODEX_INSTRUCTIONS.md)
 
@@ -41,8 +41,14 @@
 | DEOBF-002 | 多信号静态反混淆 | done | 2026-07-29 | 2026-07-29 | markerless XOR、RC4、opaque、NetworkX CFF |
 | OPTIONAL-ADAPTERS | 重型后端能力边界 | done | 2026-07-29 | 2026-07-29 | capa/FLOSS capability；angr/Ghidra 延期到 v1.0+ |
 
+## v1.0 · Static signature generation
+
+| ID | 任务 | 状态 | 启动日 | 完成日 | 备注 |
+|----|------|------|-------|-------|------|
+| YARA-001 | 基于静态 FeatureIndex 生成 YARA 规则 | done | 2026-08-01 | 2026-08-01 | 标准 pe_imphash、筛选字符串、SHA-256 fallback；yara-python 编译验证 |
+
 > Hook C（Ghidra headless）与 Hook D（YARA 生成）仍按技术方案延期，
-> 未经新 issue 批准不实施。
+> 其中 YARA-001 已获批准并完成；Ghidra 仍未经新 issue 批准不实施。
 
 ---
 

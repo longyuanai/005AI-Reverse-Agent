@@ -20,6 +20,7 @@ networkx = ">=3.2"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"
 pytest-mock = "^3.14.0"
+yara-python = "^4.5.4"
 
 [build-system]
 requires = ["poetry-core"]
