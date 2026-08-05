@@ -26,7 +26,7 @@ yara-python = "^4.5.4"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[project.entry-points."longyuanai.reverse_rules"]
+[tool.poetry.plugins."longyuanai.reverse_rules"]
 cff = "ai_reverse_agent.deobfuscation.cff:ControlFlowFlatteningRule"
 opaque_predicate = "ai_reverse_agent.deobfuscation.opaque_pred:OpaquePredicateRule"
 string_xor = "ai_reverse_agent.deobfuscation.string_xor:XorStringRule"
