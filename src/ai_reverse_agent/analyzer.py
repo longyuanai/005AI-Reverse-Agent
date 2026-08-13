@@ -16,6 +16,10 @@ from shared_llm_core import (
     ChatResponse,
 )
 from shared_llm_core.router import TaskTier
+from shared_llm_core.untrusted import (
+    INJECTION_GUARD_SYSTEM_PROMPT,
+    wrap_untrusted,
+)
 
 from ai_reverse_agent.datatypes import EnrichedFunction, IdentifiedFunction
 
@@ -60,10 +64,16 @@ def explain_function(router: object, fn: IdentifiedFunction) -> EnrichedFunction
     """Ask the LLM for the purpose of one function."""
     req = ChatRequest(
         messages=[
-            ChatMessage(role="system", content=_SYSTEM),
+            ChatMessage(
+                role="system",
+                content=f"{_SYSTEM}\n\n{INJECTION_GUARD_SYSTEM_PROMPT}",
+            ),
             ChatMessage(
                 role="user",
-                content=_USER_TEMPLATE.format(name=fn.name, dll=fn.dll),
+                content=_USER_TEMPLATE.format(
+                    name=wrap_untrusted(fn.name, kind="binary_symbol"),
+                    dll=wrap_untrusted(fn.dll, kind="binary_symbol"),
+                ),
             ),
         ],
         temperature=0.2,
