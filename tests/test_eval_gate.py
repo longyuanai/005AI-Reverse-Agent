@@ -6,9 +6,11 @@ from pathlib import Path
 import pytest
 from shared_llm_core.evaluation import EvalCase, run_eval
 
+from ai_reverse_agent.decompilers.selector import default_decompiler_selector
+
 FIXTURES = Path(__file__).resolve().parents[1] / "evals" / "fixtures"
 
-_CASE_ROWS = (
+_BASE_CASE_ROWS = (
     ("reverse-known-open", {"symbol": "SyntheticOpen", "sample": "known"}),
     ("reverse-known-read", {"symbol": "SyntheticRead", "sample": "known"}),
     ("reverse-unknown-function", {"symbol": "sub_synthetic_unknown", "sample": "unknown"}),
@@ -18,31 +20,72 @@ _CASE_ROWS = (
 )
 
 
-def _cases() -> list[EvalCase]:
+def _cases(backend: str) -> list[EvalCase]:
     return [
         EvalCase(
-            id=case_id,
+            id=f"{backend}-{case_id}",
             inputs=inputs,
             expected={
                 "required_fields": ["name", "purpose"],
             },
         )
-        for case_id, inputs in _CASE_ROWS
+        for case_id, inputs in _BASE_CASE_ROWS
     ]
 
 
-def test_golden_set_passes_in_replay(monkeypatch: pytest.MonkeyPatch) -> None:
+def _run_backend(monkeypatch: pytest.MonkeyPatch, backend: str):
     monkeypatch.setenv("SHARED_LLM_EVAL_MODE", "replay")
     monkeypatch.setenv("SHARED_LLM_EVAL_FIXTURES", str(FIXTURES))
-    results = run_eval(_cases())
+    return run_eval(_cases(backend))
+
+
+def _selected_backend() -> str:
+    return default_decompiler_selector().selected_backend().name
+
+
+def test_golden_set_passes_in_replay(monkeypatch: pytest.MonkeyPatch) -> None:
+    results = _run_backend(monkeypatch, _selected_backend())
     assert all(result.passed for result in results), results
 
 
+def test_native_golden_set_passes_in_replay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results = _run_backend(monkeypatch, "native")
+    assert all(result.passed for result in results), results
+
+
+def test_ghidra_golden_set_passes_in_replay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results = _run_backend(monkeypatch, "ghidra")
+    assert all(result.passed for result in results), results
+
+
+def test_backends_have_separate_baselines() -> None:
+    native = {
+        path.name.removeprefix("native-")
+        for path in FIXTURES.glob("native-*.json")
+    }
+    ghidra = {
+        path.name.removeprefix("ghidra-")
+        for path in FIXTURES.glob("ghidra-*.json")
+    }
+
+    assert native == ghidra
+    assert len(native) >= 6
+    assert not ({path.stem for path in FIXTURES.glob("native-*.json")} & {
+        path.stem for path in FIXTURES.glob("ghidra-*.json")
+    })
+
+
 def test_golden_set_has_expected_case_count() -> None:
-    cases = _cases()
-    assert len(cases) >= 6
+    cases = _cases("native") + _cases("ghidra")
+    assert len(cases) >= 12
     assert len({case.id for case in cases}) == len(cases)
-    assert {path.stem for path in FIXTURES.glob("*.json")} == {case.id for case in cases}
+    assert {path.stem for path in FIXTURES.glob("*.json")} == {
+        case.id for case in cases
+    }
 
 
 def test_fixtures_contain_no_real_identifiers() -> None:
