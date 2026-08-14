@@ -40,6 +40,7 @@ class DecompiledFunction:
     stack_variables: tuple[StackVariable, ...]
     pseudo_c: str
     library: str | None = None
+    backend: str = "native"
 
 
 _RETURN_MNEMONICS = {"ret", "retf", "iret", "iretd", "iretq"}

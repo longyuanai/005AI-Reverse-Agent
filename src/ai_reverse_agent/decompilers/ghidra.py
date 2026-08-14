@@ -187,6 +187,7 @@ def _function_from_record(record: Any) -> DecompiledFunction:
         ),
         pseudo_c=pseudo_c,
         library=library,
+        backend="ghidra",
     )
 
 
