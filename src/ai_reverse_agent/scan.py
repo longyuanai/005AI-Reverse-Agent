@@ -7,15 +7,16 @@ from pathlib import Path
 from typing import Any
 
 from shared_llm_core.rule_engine import RuleContext
+from shared_llm_core.telemetry import span
 
 from ai_reverse_agent.architecture import resolve_architecture
 from ai_reverse_agent.backends import BinaryImage, BinaryLoader
 from ai_reverse_agent.crypto_id import identify_crypto
-from ai_reverse_agent.deobfuscation import build_reverse_rule_engine
 from ai_reverse_agent.decompilers.selector import (
     DecompilerSelector,
     default_decompiler_selector,
 )
+from ai_reverse_agent.deobfuscation import build_reverse_rule_engine
 from ai_reverse_agent.disasm import disassemble
 from ai_reverse_agent.features import extract_features
 from ai_reverse_agent.findings import imphash_finding
@@ -29,6 +30,18 @@ def scan_binary(
     decompiler_selector: DecompilerSelector | None = None,
 ) -> dict[str, Any]:
     """Scan one binary described by the IntegrationGateway payload."""
+    with span(
+        "product.scan",
+        attributes={"product.id": "005", "scan.target_type": "binary_file"},
+    ):
+        return _scan_binary(payload, decompiler_selector=decompiler_selector)
+
+
+def _scan_binary(
+    payload: dict[str, Any],
+    *,
+    decompiler_selector: DecompilerSelector | None = None,
+) -> dict[str, Any]:
 
     binary_path = payload.get("binary_path")
     architecture = payload.get("arch")
