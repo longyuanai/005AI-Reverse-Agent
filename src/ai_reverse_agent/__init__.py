@@ -6,7 +6,11 @@ identifies imported and local functions, asks shared-llm-core for
 one-line purposes, and emits a Markdown report.
 """
 
-from ai_reverse_agent.analyzer import explain_functions
+from ai_reverse_agent.analyzer import (
+    explain_decompiled_function,
+    explain_decompiled_functions,
+    explain_functions,
+)
 from ai_reverse_agent.architecture import (
     Architecture,
     ArchitectureSpec,
@@ -152,6 +156,8 @@ __all__ = [
     "disassemble_bytes",
     "disassemble_file",
     "explain_functions",
+    "explain_decompiled_function",
+    "explain_decompiled_functions",
     "identify_functions",
     "make_fake_pe",
     "match_code",

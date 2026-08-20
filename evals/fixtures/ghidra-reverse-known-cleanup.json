@@ -1,0 +1,1 @@
+{"name": "SyntheticClose", "purpose": "Recorded pseudo-C releases the synthetic resource handle before returning."}

@@ -1,6 +1,6 @@
 # 005 AI-Reverse-Agent · v0.1 TODO
 
-> **项目状态**: YARA-001 complete ✅ (278/278 tests passing)
+> **项目状态**: 核心静态分析基线完成；Commercial Alpha 规划中（278/278 tests passing）
 > **共享接口**: [v0.1-contract.md](../../000shared-llm-core/docs/v0.1-contract.md) (已冻结)
 > **派活模板**: [CODEX_INSTRUCTIONS.md](../../CODEX_INSTRUCTIONS.md)
 
@@ -49,6 +49,30 @@
 
 > Hook C（Ghidra headless）与 Hook D（YARA 生成）仍按技术方案延期，
 > 其中 YARA-001 已获批准并完成；Ghidra 仍未经新 issue 批准不实施。
+
+## 商业化路线图
+
+> 完成定义以 [COMMERCIAL-READINESS.md](COMMERCIAL-READINESS.md) 为准；`planned`
+> 不代表依赖已批准。每个 Epic 单独 issue、单独 PR，不允许一次性大改冻结契约。
+
+| ID | 优先级 | 任务 | 状态 | 商用阶段 | 关键验收 |
+|----|--------|------|------|----------|----------|
+| COM-DOC-001 | P0 | 商用技术、安全与验收基线 | in_progress | Alpha | tech-spec、readiness、ADR-003 评审通过 |
+| JOB-001 | P0 | durable job、进度、取消、超时、幂等 | planned | Alpha | worker 崩溃可恢复，API 不执行长任务 |
+| EVAL-001 | P0 | 授权 corpus 与准确率/性能基准 | planned | Alpha | clean/detection/malformed/performance 报告 |
+| RELEASE-001 | P0 | 依赖锁定、CI 矩阵、SBOM、签名制品 | planned | Alpha | Windows/Linux 构建与 contract suite 全绿 |
+| UI-001 | P0 | React Web UI：上传、进度、结果 | planned | Pilot | 三屏 E2E、可访问性、错误/降级状态 |
+| AUTH-001 | P0 | 身份、RBAC、租户隔离与审计 | planned | Pilot | 越权测试、审计完整、secret 不入日志 |
+| STORAGE-001 | P0 | metadata/object storage 与生命周期 | planned | Pilot | 加密、删除、备份、恢复、迁移回滚 |
+| SECURITY-001 | P0 | worker 隔离、资源配额、供应链门禁 | planned | Pilot | no-network/no-exec、fuzz、SAST/secret/dependency scan |
+| OBS-001 | P1 | metrics/logs/traces、SLO、告警 | planned | GA | health 分层、告警与故障 runbook |
+| REPORT-002 | P1 | 商用报告与证据导出 | planned | GA | JSON/Markdown/PDF 可追溯、可复核 |
+| PACKAGE-001 | P0 | Windows/Linux/air-gap 安装升级 | planned | GA | 空环境安装、升级、回滚、卸载 smoke |
+| PILOT-001 | P0 | 授权客户试点与发布签字 | planned | GA gate | 验收记录、缺陷闭环、支持边界确认 |
+| GHIDRA-001 | P2 | 可选 Ghidra Headless 深度分析 | blocked | v2.0 | Issue #3；等待外部 Ghidra/Java 明确批准 |
+
+当前商业化剩余：COM-DOC-001 完成后还有 12 个 Epic，其中 9 个 P0、2 个 P1、
+1 个 P2；只有达到 Pilot/GA 门禁后才能对外宣称商用。
 
 ---
 

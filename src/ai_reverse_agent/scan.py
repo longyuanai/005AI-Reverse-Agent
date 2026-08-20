@@ -7,10 +7,15 @@ from pathlib import Path
 from typing import Any
 
 from shared_llm_core.rule_engine import RuleContext
+from shared_llm_core.telemetry import span
 
 from ai_reverse_agent.architecture import resolve_architecture
 from ai_reverse_agent.backends import BinaryImage, BinaryLoader
 from ai_reverse_agent.crypto_id import identify_crypto
+from ai_reverse_agent.decompilers.selector import (
+    DecompilerSelector,
+    default_decompiler_selector,
+)
 from ai_reverse_agent.deobfuscation import build_reverse_rule_engine
 from ai_reverse_agent.disasm import disassemble
 from ai_reverse_agent.features import extract_features
@@ -19,8 +24,24 @@ from ai_reverse_agent.hashing import compute_import_set_hash, compute_pe_imphash
 from ai_reverse_agent.magic import MagicError
 
 
-def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
+def scan_binary(
+    payload: dict[str, Any],
+    *,
+    decompiler_selector: DecompilerSelector | None = None,
+) -> dict[str, Any]:
     """Scan one binary described by the IntegrationGateway payload."""
+    with span(
+        "product.scan",
+        attributes={"product.id": "005", "scan.target_type": "binary_file"},
+    ):
+        return _scan_binary(payload, decompiler_selector=decompiler_selector)
+
+
+def _scan_binary(
+    payload: dict[str, Any],
+    *,
+    decompiler_selector: DecompilerSelector | None = None,
+) -> dict[str, Any]:
 
     binary_path = payload.get("binary_path")
     architecture = payload.get("arch")
@@ -61,6 +82,13 @@ def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
                 count=256,
             )
         )
+        decompiled = (decompiler_selector or default_decompiler_selector()).decompile(
+            code,
+            spec.architecture,
+            address=base_address,
+            bits=spec.bits,
+            endianness=spec.endianness,
+        )
     except MagicError as exc:
         return _error_envelope("magic_error", str(exc))
     except (OSError, RuntimeError, ValueError) as exc:
@@ -86,6 +114,10 @@ def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
         "instruction_count": len(instructions),
         "binary_size": len(data),
         "backend": image.backend,
+        "decompiler_backend": (
+            decompiled[0].backend if decompiled else "native"
+        ),
+        "decompiled_function_count": len(decompiled),
     }
     requested_enrichment = payload.get("enrich", ())
     if isinstance(requested_enrichment, (list, tuple, set)):
@@ -123,6 +155,14 @@ def scan_binary(payload: dict[str, Any]) -> dict[str, Any]:
             "metadata": summary_metadata,
         }
     )
+    for finding in findings:
+        metadata = finding.get("metadata")
+        normalized_metadata = dict(metadata) if isinstance(metadata, dict) else {}
+        normalized_metadata.setdefault(
+            "decompiler_backend",
+            summary_metadata["decompiler_backend"],
+        )
+        finding["metadata"] = normalized_metadata
     return {"findings": findings, "errors": []}
 
 

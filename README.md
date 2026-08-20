@@ -1,6 +1,11 @@
 # AI-Reverse-Agent
 
 > AI reverse-engineering helper — multi-architecture raw disassembly + Stage-1 pipeline.
+
+Commercial productization is governed by
+[the commercial readiness specification](docs/COMMERCIAL-READINESS.md) and
+[ADR-003](docs/ADR-003-commercial-product-architecture.md). Passing the current
+test suite is a development baseline, not a Commercial GA claim.
 > Seventh project of the **longyuanai AI Security Agent suite**.
 
 ## What it does (PoC)
@@ -256,5 +261,5 @@ C:\Users\15072\AppData\Local\Programs\Python\Python314\python.exe `
   -m pytest tests --basetemp=C:/pytest-tmp/005 -q --tb=short -o addopts=
 ```
 
-The current v1.0 baseline is 278 passing tests. All tests use a stubbed
-router; no live LLM is required.
+The current v1.0 baseline is 278 passing tests. LLM-facing tests use a stubbed
+router, so no live LLM is required.

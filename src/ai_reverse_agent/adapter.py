@@ -7,6 +7,7 @@ from typing import Any, AsyncIterator
 from shared_llm_core.finding import Finding, FindingSeverity, FindingSource
 from shared_llm_core.gateway import ProductAdapter
 
+from ai_reverse_agent.decompilers.selector import DecompilerSelector
 from ai_reverse_agent.scan import scan_binary
 
 
@@ -15,20 +16,35 @@ class ReverseProductAdapter(ProductAdapter):
 
     source = FindingSource.REVERSE
 
+    def __init__(
+        self,
+        *,
+        decompiler_selector: DecompilerSelector | None = None,
+    ) -> None:
+        self._decompiler_selector = decompiler_selector
+
     async def scan(self, payload: dict[str, Any]) -> AsyncIterator[Finding]:
         effective_payload = dict(payload)
         architecture = effective_payload.get("arch") or "x64"
         effective_payload["arch"] = architecture
-        envelope = scan_binary(effective_payload)
+        envelope = scan_binary(
+            effective_payload,
+            decompiler_selector=self._decompiler_selector,
+        )
+        decompiler_backend = _decompiler_backend(envelope)
 
         for item in envelope.get("findings", []):
             evidence = list(item.get("evidence", ()))
             evidence.append(f"arch={architecture}")
+            metadata = item.get("metadata")
+            normalized_metadata = dict(metadata) if isinstance(metadata, dict) else {}
+            normalized_metadata.setdefault("decompiler_backend", decompiler_backend)
             normalized = {
                 **item,
                 "id": "",
                 "source": self.source.value,
                 "evidence": evidence,
+                "metadata": normalized_metadata,
             }
             if not normalized.get("description") and normalized.get("narrative"):
                 normalized["description"] = normalized["narrative"]
@@ -61,7 +77,10 @@ class ReverseProductAdapter(ProductAdapter):
                 host=str(binary) if binary else None,
                 evidence=(f"arch={architecture}", f"error={code}"),
                 tags=frozenset({"warning"}),
-                metadata={"error_code": code},
+                metadata={
+                    "error_code": code,
+                    "decompiler_backend": decompiler_backend,
+                },
             )
 
     def health(self) -> dict[str, Any]:
@@ -70,3 +89,16 @@ class ReverseProductAdapter(ProductAdapter):
             "product": "005-reverse",
             "version": "0.5.0",
         }
+
+
+def _decompiler_backend(envelope: dict[str, Any]) -> str:
+    for item in envelope.get("findings", ()):
+        if not isinstance(item, dict):
+            continue
+        metadata = item.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+        backend = metadata.get("decompiler_backend")
+        if isinstance(backend, str) and backend.strip():
+            return backend
+    return "native"
