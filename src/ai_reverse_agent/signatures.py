@@ -123,7 +123,11 @@ def match_code(
 def _matches(prefix: bytes, signature: LibrarySignature) -> bool:
     if len(prefix) < len(signature.pattern):
         return False
+    # `prefix` may be longer than the pattern (checked above); only the
+    # pattern's length is compared.
     return all(
         mask == 0 or actual == expected
-        for actual, expected, mask in zip(prefix, signature.pattern, signature.mask)
+        for actual, expected, mask in zip(
+            prefix, signature.pattern, signature.mask, strict=False
+        )
     )

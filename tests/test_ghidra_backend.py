@@ -100,7 +100,7 @@ def test_timeout_raises_typed_error() -> None:
 
     backend = GhidraDecompilerBackend(runner=runner, timeout_seconds=1.5)
 
-    with pytest.raises(GhidraTimeoutError, match="1.5 seconds"):
+    with pytest.raises(GhidraTimeoutError, match=r"1\.5 seconds"):
         backend.decompile(b"MZ", "x64")
 
 

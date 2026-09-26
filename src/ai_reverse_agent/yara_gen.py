@@ -11,7 +11,6 @@ from typing import Any
 from ai_reverse_agent.backends import BinaryLoader
 from ai_reverse_agent.deobfuscation.string_xor import find_xor_strings
 from ai_reverse_agent.features import FeatureIndex, extract_features
-from ai_reverse_agent.magic import MagicError
 
 
 MAX_YARA_STRINGS = 64
@@ -325,8 +324,8 @@ def _render_rule(
 
 __all__ = [
     "DEFAULT_MAX_STRINGS",
-    "GeneratedYaraRule",
     "MAX_YARA_STRINGS",
+    "GeneratedYaraRule",
     "YaraGenerationError",
     "YaraString",
     "escape_yara_string",

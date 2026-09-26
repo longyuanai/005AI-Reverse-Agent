@@ -7,10 +7,7 @@ from io import BytesIO
 import pytest
 
 from ai_reverse_agent.datatypes import (
-    FunctionEntry,
-    ImportEntry,
     PeImage,
-    Section,
 )
 from ai_reverse_agent.fake_pe import make_fake_pe
 from ai_reverse_agent.parsers import (

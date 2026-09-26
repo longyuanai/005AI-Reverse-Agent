@@ -35,7 +35,7 @@ class ControlFlowFlatteningRule(ObfuscationRule):
         scored = score_cff(stats, dict(metrics)) if stats is not None else None
         detected = explicit or (
             stats is not None
-            and (has_switch_dispatcher(stats) or scored is not None and scored.detected)
+            and (has_switch_dispatcher(stats) or (scored is not None and scored.detected))
         )
         if not detected:
             return []

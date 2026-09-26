@@ -25,6 +25,10 @@ networkx = ">=3.2"
 pytest = "^8.2.0"
 pytest-mock = "^3.14.0"
 yara-python = "^4.5.4"
+ruff = ">=0.6"
+
+[tool.poetry.scripts]
+ai-reverse-agent = "ai_reverse_agent.cli:main"
 
 [build-system]
 requires = ["poetry-core"]
@@ -39,3 +43,26 @@ string_rc4 = "ai_reverse_agent.deobfuscation.string_rc4:Rc4StringRule"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--basetemp=.pytest-tmp"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "C4", "SIM", "UP", "ARG", "RUF"]
+ignore = [
+    "E501",    # long literals and messages; formatting is not enforced here
+    "UP037",   # quoted annotations are used for self-referencing dataclasses
+    "SIM108",  # explicit if/else is clearer than ternaries in parser code
+    "UP042",   # `str, Enum` is load-bearing: .value is serialized into findings
+    "RUF002",  # docstrings intentionally use × and other typographic characters
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG001", "ARG002"]
+# Backend and solver classes implement shared protocols, so they keep the
+# full signature even when one implementation ignores an argument.
+"src/ai_reverse_agent/backends/*" = ["ARG002"]
+"src/ai_reverse_agent/integrations/*" = ["ARG002"]
+"src/ai_reverse_agent/symbolic.py" = ["ARG002"]

@@ -37,7 +37,7 @@ class OpaquePredicateRule(ObfuscationRule):
                     max_candidates=65_536,
                 )
                 false_path = solve_branch(
-                    tuple(constraints[:-1]) + (constraints[-1].negate(),),
+                    (*constraints[:-1], constraints[-1].negate()),
                     backend="mini",
                     max_candidates=65_536,
                 )

@@ -97,7 +97,6 @@ def build_cfg(
     if current:
         blocks.append(_make_block(current))
 
-    block_by_start = {block.start_address: block for block in blocks}
     edges: list[ControlFlowEdge] = []
     for index, block in enumerate(blocks):
         terminator = block.instructions[-1]
@@ -235,7 +234,7 @@ def _is_conditional_jump(instruction: NormalizedInstruction) -> bool:
     return (
         mnemonic in _CONDITIONAL_JUMPS
         or mnemonic.startswith("b.")
-        or mnemonic.startswith("j") and mnemonic not in _UNCONDITIONAL_JUMPS
+        or (mnemonic.startswith("j") and mnemonic not in _UNCONDITIONAL_JUMPS)
     )
 
 

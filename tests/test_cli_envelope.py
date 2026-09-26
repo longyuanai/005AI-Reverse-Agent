@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from ai_reverse_agent.cli import cli
@@ -76,7 +77,10 @@ def test_scan_handles_unsupported_arch_gracefully(tmp_path: Path) -> None:
 def test_reverse_adapter_subprocess_end_to_end(tmp_path: Path) -> None:
     if str(INTEGRATION_SRC) not in sys.path:
         sys.path.insert(0, str(INTEGRATION_SRC))
-    from shared_integration.adapters.reverse import ReverseAdapter
+    # Needs the sibling 000shared-integration checkout.
+    ReverseAdapter = pytest.importorskip(
+        "shared_integration.adapters.reverse"
+    ).ReverseAdapter
 
     binary = tmp_path / "adapter-x64.bin"
     binary.write_bytes(make_fake_bin("x64"))

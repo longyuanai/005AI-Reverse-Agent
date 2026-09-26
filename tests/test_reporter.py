@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 from ai_reverse_agent.analyzer import explain_functions
-from ai_reverse_agent.datatypes import EnrichedFunction, IdentifiedFunction
 from ai_reverse_agent.fake_pe import make_fake_pe
 from ai_reverse_agent.identifier import identify_functions
 from ai_reverse_agent.parsers import parse_pe_bytes
@@ -86,8 +85,6 @@ def test_report_includes_source_label():
 
 def test_report_handles_zero_functions():
     """If there are no functions, the report still renders cleanly."""
-    from ai_reverse_agent.datatypes import OptionalHeader, CoffHeader
-    from ai_reverse_agent.parsers import _parse  # noqa: PLC2701
     # Use the real parser on the real fake PE — then zero everything.
     pe = parse_pe_bytes(make_fake_pe())
     pe_no_fn = pe.__class__(
