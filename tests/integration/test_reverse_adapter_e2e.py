@@ -19,7 +19,8 @@ INTEGRATION_SRC = SUITE_ROOT / "000shared-integration" / "src"
 if str(INTEGRATION_SRC) not in sys.path:
     sys.path.insert(0, str(INTEGRATION_SRC))
 
-from shared_integration.gateway import build_gateway
+# Needs the sibling 000shared-integration checkout; skip the module without it.
+build_gateway = pytest.importorskip("shared_integration.gateway").build_gateway
 
 
 @pytest.fixture(scope="module")

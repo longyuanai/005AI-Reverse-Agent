@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 import itertools
 from dataclasses import dataclass
-from typing import Mapping
+from collections.abc import Mapping
 
 
 class SymbolicError(ValueError):
@@ -231,7 +231,7 @@ def solve_branch(
         raise SymbolicError("backend must be one of: auto, mini, z3")
 
     z3_available = importlib.util.find_spec("z3") is not None
-    selected = "z3" if backend == "z3" or backend == "auto" and z3_available else "mini"
+    selected = "z3" if backend == "z3" or (backend == "auto" and z3_available) else "mini"
     if selected == "z3" and not z3_available:
         raise SymbolicBackendUnavailable(
             "z3 backend requested but z3-solver is not installed"
@@ -261,7 +261,7 @@ def _solve_with_mini(
     ]
     evaluated = 0
     for candidate in itertools.product(*domains):
-        values = dict(zip((symbol.name for symbol in symbols), candidate))
+        values = dict(zip((symbol.name for symbol in symbols), candidate, strict=True))
         evaluated += 1
         try:
             satisfied = all(constraint.evaluate(values) for constraint in constraints)

@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-from io import BytesIO
 from pathlib import Path
 
 import click

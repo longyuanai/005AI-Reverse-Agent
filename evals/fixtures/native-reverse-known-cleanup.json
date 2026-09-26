@@ -1,0 +1,1 @@
+{"name": "SyntheticClose", "purpose": "Releases a synthetic resource handle owned by the caller."}

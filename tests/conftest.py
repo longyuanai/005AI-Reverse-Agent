@@ -31,7 +31,7 @@ def stub_router() -> object:
                 "purpose": "stub-purpose description",
             }
 
-        def chat(self, tier, req):  # noqa: ARG002
+        def chat(self, tier, req):
             from shared_llm_core import (
                 ChatChoice,
                 ChatMessage,

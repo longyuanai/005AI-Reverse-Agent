@@ -30,7 +30,7 @@
 - 不透明谓词(opaque predicates)
 - 字符串加密(XOR / RC4)
 
-**派活文档**:`024-REVERSE-DEOBFUSCATE.md`(待起草)
+**实现依据**:`docs/ADR-002-open-source-analysis-architecture.md` 与现有回归测试。
 
 ```python
 # src/ai_reverse_agent/obfuscation.py
@@ -58,9 +58,9 @@ class ObfuscationRule(Rule):
 
 **目标**:从 PE/ELF 的 IAT 提取 API 调用,与已知 hash 对照(imphash)。
 
-**派活文档**:`025-REVERSE-IMPHASH.md`(待起草)
+**实现依据**:`docs/ADR-002-open-source-analysis-architecture.md` 与现有回归测试。
 
-- 提 imphash(Imports Hash,FBI 格式)
+- 提取标准、顺序敏感的 `pe_imphash`，另提供排序后的 `import_set_hash`
 - 与病毒库 hash 对照(MalwareBazaar 等离线列表)
 - 输出 finding:类似 "此 hash 与已知样本 X 重合"
 
@@ -105,4 +105,4 @@ v1.0: Hook D (YARA 生成) 已完成;Hook C (Ghidra 集成) 待单独审批
 ---
 
 **最近修订**: 2026-08-01 · Codex 完成 YARA-001 后同步
-**下次回看触发**: Ghidra headless issue 获批
+**下次回看触发**: GitHub Issue #3 `GHIDRA-001` 获批；商业化工作转入 `docs/COMMERCIAL-READINESS.md`

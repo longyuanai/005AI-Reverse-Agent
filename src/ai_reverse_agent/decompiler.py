@@ -40,6 +40,7 @@ class DecompiledFunction:
     stack_variables: tuple[StackVariable, ...]
     pseudo_c: str
     library: str | None = None
+    backend: str = "native"
 
 
 _RETURN_MNEMONICS = {"ret", "retf", "iret", "iretd", "iretq"}
@@ -156,7 +157,31 @@ def decompile_bytes(
     thumb: bool = False,
     recognize_libraries: bool = True,
 ) -> tuple[DecompiledFunction, ...]:
-    """Disassemble bytes through S1 and return pseudo-C functions."""
+    """Disassemble bytes through the selected backend and return pseudo-C."""
+    from ai_reverse_agent.decompilers.selector import default_decompiler_selector
+
+    return default_decompiler_selector().decompile(
+        data,
+        architecture,
+        address=address,
+        bits=bits,
+        endianness=endianness,
+        thumb=thumb,
+        recognize_libraries=recognize_libraries,
+    )
+
+
+def _decompile_bytes_native(
+    data: bytes,
+    architecture: Architecture | str,
+    *,
+    address: int = 0,
+    bits: int | None = None,
+    endianness: Endianness | str = Endianness.LITTLE,
+    thumb: bool = False,
+    recognize_libraries: bool = True,
+) -> tuple[DecompiledFunction, ...]:
+    """Run the original Capstone-backed pseudo-C implementation."""
     instructions = tuple(
         disassemble(
             data,
@@ -230,7 +255,7 @@ def _instruction_to_c(
         return f"{_target_name(operands)}();"
     if mnemonic in {"jmp", "b", "bra"}:
         return f"goto {_target_name(operands)};"
-    if mnemonic in _CONDITIONAL_JUMPS or mnemonic.startswith("j") and mnemonic != "jmp":
+    if mnemonic in _CONDITIONAL_JUMPS or (mnemonic.startswith("j") and mnemonic != "jmp"):
         return f"if (/* {mnemonic} */) goto {_target_name(operands)};"
 
     left, separator, right = operands.partition(",")

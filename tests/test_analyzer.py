@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from ai_reverse_agent.analyzer import explain_function, explain_functions
 from ai_reverse_agent.datatypes import EnrichedFunction, IdentifiedFunction

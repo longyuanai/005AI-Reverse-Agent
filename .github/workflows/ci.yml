@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: ["master", "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      # The package depends on the sibling 000shared-llm-core checkout (a
+      # Poetry path dependency), so lay the workspace out the same way.
+      - uses: actions/checkout@v4
+        with:
+          path: 005AI-Reverse-Agent
+
+      - uses: actions/checkout@v4
+        with:
+          repository: longyuanai/000shared-llm-core
+          path: 000shared-llm-core
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ./000shared-llm-core
+          python -m pip install capstone click rich pefile pyelftools networkx \
+            yara-python pytest pytest-mock ruff
+
+      - name: Lint
+        working-directory: 005AI-Reverse-Agent
+        run: python -m ruff check src tests scripts
+
+      # The gateway e2e module skips itself without the sibling
+      # 000shared-integration checkout.
+      - name: Test
+        working-directory: 005AI-Reverse-Agent
+        env:
+          PYTHONPATH: src
+        run: python -m pytest -q
+
+      - name: Smoke-test the CLI
+        working-directory: 005AI-Reverse-Agent
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m ai_reverse_agent.cli disassemble samples/x64-demo.bin --arch x64
+          python -m ai_reverse_agent.cli crypto-id samples/demo-pe.bin
+          echo '{"binary_path":"samples/mini_binaries/mini_x64_pe.exe","arch":"x64"}' \
+            | python -m ai_reverse_agent.cli scan --json
